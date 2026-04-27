@@ -12,6 +12,11 @@ public class DriverAppProvider
     private static readonly string SESSION_STORAGE_PATH = Environment.CurrentDirectory + "/sessionstorage";
     private static readonly string RANDOM_PATH = Environment.CurrentDirectory + "/random_data.json";
 
+    private static readonly object SessionStorageLock = new object();
+    private static readonly object RandomStorageLock = new object();
+    private static readonly object ExcelLock = new object();
+    private static readonly object AccessKeysLock = new object();
+
     private ExcelProvider users;
     private ExcelProvider cars;
     private ExcelProvider checkups;
@@ -36,41 +41,51 @@ public class DriverAppProvider
 
     private void LoadSessionStorage()
     {
-        try
+        lock (SessionStorageLock)
         {
-            if (!File.Exists(SESSION_STORAGE_PATH)) sessions_storage = new Dictionary<string, User>();
-            else
+            try
             {
-                var data = File.ReadAllText(SESSION_STORAGE_PATH);
+                if (!File.Exists(SESSION_STORAGE_PATH))
+                {
+                    sessions_storage = new Dictionary<string, User>();
+                    return;
+                }
 
-                byte[] decrypt = data.Select(x => (byte)(x ^ 69)).ToArray();
-
+                var bytes = File.ReadAllBytes(SESSION_STORAGE_PATH);
+                byte[] decrypt = bytes.Select(x => (byte)(x ^ 69)).ToArray();
                 var raw = Encoding.UTF8.GetString(decrypt);
 
-                sessions_storage = JsonConvert.DeserializeObject<Dictionary<string, User>>(raw);
+                var loaded = JsonConvert.DeserializeObject<Dictionary<string, User>>(raw);
+                sessions_storage = loaded ?? new Dictionary<string, User>();
             }
-        }
-        catch
-        {
-
+            catch
+            {
+                // If the file is partially-written or corrupted, keep an empty in-memory store
+                // rather than throwing (and potentially breaking auth requests).
+                sessions_storage = new Dictionary<string, User>();
+            }
         }
     }
 
     private void SaveSessionStorage()
     {
-        try
+        lock (SessionStorageLock)
         {
-            var data = JsonConvert.SerializeObject(sessions_storage);
+            try
+            {
+                var data = JsonConvert.SerializeObject(sessions_storage);
 
-            byte[] raw = Encoding.UTF8.GetBytes(data);
+                byte[] raw = Encoding.UTF8.GetBytes(data);
+                byte[] encrypt = raw.Select(x => (byte)(x ^ 69)).ToArray();
 
-            byte[] encrypt = raw.Select(x => (byte)(x ^ 69)).ToArray();
-
-            File.WriteAllBytes(SESSION_STORAGE_PATH, encrypt);
-        }
-        catch
-        {
-
+                // Atomic replace to avoid readers seeing a partially-written file.
+                var tmpPath = SESSION_STORAGE_PATH + ".tmp";
+                File.WriteAllBytes(tmpPath, encrypt);
+                File.Move(tmpPath, SESSION_STORAGE_PATH, overwrite: true);
+            }
+            catch
+            {
+            }
         }
     }
 
@@ -105,57 +120,63 @@ public class DriverAppProvider
 
     public User[] GetUsers()
     {
-        users.Update();
-
-        int count = users.GetRowsCount();
-
-        var result = new User[count - 1];
-
-        for (int i = 1; i < count; i++)
+        lock (ExcelLock)
         {
-            var userData = users.GetRow(i + 1);
+            users.Update();
 
-            User user = new User(this);
+            int count = users.GetRowsCount();
 
-            user.surname = userData["Фамилия"];
-            user.name = userData["Имя"];
-            user.patronymic = userData["Отчество"];
-            user.number = userData["Номер телефона"];
-            user.role = userData["Права доступа"];
-            user.login = userData["Логин"];
-            user.password = userData["Пароль"];
-            try { user.id = long.Parse(userData["Telegram ID"]); } catch { }
+            var result = new User[count - 1];
 
-            result[i - 1] = user;
+            for (int i = 1; i < count; i++)
+            {
+                var userData = users.GetRow(i + 1);
+
+                User user = new User(this);
+
+                user.surname = userData["Фамилия"];
+                user.name = userData["Имя"];
+                user.patronymic = userData["Отчество"];
+                user.number = userData["Номер телефона"];
+                user.role = userData["Права доступа"];
+                user.login = userData["Логин"];
+                user.password = userData["Пароль"];
+                try { user.id = long.Parse(userData["Telegram ID"]); } catch { }
+
+                result[i - 1] = user;
+            }
+
+            return result;
         }
-
-        return result;
     }
 
     public Car[] GetCars()
     {
-        cars.Update();
-
-        int count = cars.GetRowsCount();
-
-        var result = new Car[count - 1];
-
-        for (int i = 1; i < count; i++)
+        lock (ExcelLock)
         {
-            var data = cars.GetRow(i + 1);
+            cars.Update();
 
-            Car car = new Car();
+            int count = cars.GetRowsCount();
 
-            car.number = data["Гос.номер"];
-            car.brand = data["Марка"];
-            car.model = data["Модель"];
-            car.vin = data["VIN"];
-            car.color = data["Цвет"];
+            var result = new Car[count - 1];
 
-            result[i - 1] = car;
+            for (int i = 1; i < count; i++)
+            {
+                var data = cars.GetRow(i + 1);
+
+                Car car = new Car();
+
+                car.number = data["Гос.номер"];
+                car.brand = data["Марка"];
+                car.model = data["Модель"];
+                car.vin = data["VIN"];
+                car.color = data["Цвет"];
+
+                result[i - 1] = car;
+            }
+
+            return result;
         }
-
-        return result;
     }
 
     public void AddCheckUp(CheckUp checkUp)
@@ -200,68 +221,80 @@ public class DriverAppProvider
 
     public void AddCheckUp(ExcelProvider.Row data)
     {
-        var headers = checkups.GetRow(1);
-
-        var count = checkups.GetRowsCount();
-
-        for (int i = 0; i < headers.Count; i++)
+        lock (ExcelLock)
         {
-            var key = headers.ElementAt(i).Value;
+            var headers = checkups.GetRow(1);
 
-            if (data.ContainsKey(key)) checkups.Set(count + 1, i + 1, data[key]);
+            var count = checkups.GetRowsCount();
+
+            for (int i = 0; i < headers.Count; i++)
+            {
+                var key = headers.ElementAt(i).Value;
+
+                if (data.ContainsKey(key)) checkups.Set(count + 1, i + 1, data[key]);
+            }
+
+            checkups.Save();
         }
-
-        checkups.Save();
     }
 
     public void AddPostCheckUp(ExcelProvider.Row data)
     {
-        var table = postCheckups;
-
-        var headers = table.GetRow(1);
-
-        var count = table.GetRowsCount();
-
-        for (int i = 0; i < headers.Count; i++)
+        lock (ExcelLock)
         {
-            var key = headers.ElementAt(i).Value;
+            var table = postCheckups;
 
-            if (data.ContainsKey(key)) table.Set(count + 1, i + 1, data[key]);
+            var headers = table.GetRow(1);
+
+            var count = table.GetRowsCount();
+
+            for (int i = 0; i < headers.Count; i++)
+            {
+                var key = headers.ElementAt(i).Value;
+
+                if (data.ContainsKey(key)) table.Set(count + 1, i + 1, data[key]);
+            }
+
+            table.Save();
         }
-
-        table.Save();
     }
 
     public ExcelProvider.Row[] GetCheckups()
     {
-        checkups.Update();
-
-        var count = checkups.GetRowsCount() - 1;
-
-        var result = new ExcelProvider.Row[count ];
-
-        for (int i = 0; i < count; i++)
+        lock (ExcelLock)
         {
-            result[i] = checkups.GetRow(i + 2);
-        }
+            checkups.Update();
 
-        return result;
+            var count = checkups.GetRowsCount() - 1;
+
+            var result = new ExcelProvider.Row[count];
+
+            for (int i = 0; i < count; i++)
+            {
+                result[i] = checkups.GetRow(i + 2);
+            }
+
+            return result;
+        }
     }
 
     public ExcelProvider.Row[] GetPostCheckups()
     {
-        postCheckups.Update();
-
-        var count = postCheckups.GetRowsCount() - 1;
-
-        var result = new ExcelProvider.Row[count];
-
-        for (int i = 0; i < count; i++)
+        lock (ExcelLock)
         {
-            result[i] = postCheckups.GetRow(i + 2);
-        }
+            postCheckups.Update();
 
-        return result;
+            var count = postCheckups.GetRowsCount() - 1;
+
+            var result = new ExcelProvider.Row[count];
+
+            for (int i = 0; i < count; i++)
+            {
+                result[i] = postCheckups.GetRow(i + 2);
+            }
+
+            return result;
+        }
     }
 
     public CheckUp[] GetCheckUps()
@@ -306,18 +339,21 @@ public class DriverAppProvider
 
     private ExcelProvider.Row[] _GetRandom()
     {
-        randomPhoto.Update();
-
-        var count = randomPhoto.GetRowsCount() - 1;
-
-        var result = new ExcelProvider.Row[count];
-
-        for (int i = 0; i < count; i++)
+        lock (ExcelLock)
         {
-            result[i] = randomPhoto.GetRow(i + 2);
-        }
+            randomPhoto.Update();
 
-        return result;
+            var count = randomPhoto.GetRowsCount() - 1;
+
+            var result = new ExcelProvider.Row[count];
+
+            for (int i = 0; i < count; i++)
+            {
+                result[i] = randomPhoto.GetRow(i + 2);
+            }
+
+            return result;
+        }
     }
 
     public RandomPhoto GetRandom()
@@ -405,15 +441,21 @@ public class DriverAppProvider
 
             var random_user_data_block = new Dictionary<string, int[]>();
 
-            try { random_user_data_block = JsonConvert.DeserializeObject<Dictionary<string, int[]>>(File.ReadAllText(RANDOM_PATH)); } catch { }
-            try { random_user_data = random_user_data_block[key]; } catch { }
+            lock (RandomStorageLock)
+            {
+                try { random_user_data_block = JsonConvert.DeserializeObject<Dictionary<string, int[]>>(File.ReadAllText(RANDOM_PATH)); } catch { }
+                try { random_user_data = random_user_data_block[key]; } catch { }
+            }
 
             if (random_user_data.Length == 0)
             {
                 SwitchRandomWheel();
 
-                try { random_user_data_block = JsonConvert.DeserializeObject<Dictionary<string, int[]>>(File.ReadAllText(RANDOM_PATH)); } catch { }
-                try { random_user_data = random_user_data_block[key]; } catch { }
+                lock (RandomStorageLock)
+                {
+                    try { random_user_data_block = JsonConvert.DeserializeObject<Dictionary<string, int[]>>(File.ReadAllText(RANDOM_PATH)); } catch { }
+                    try { random_user_data = random_user_data_block[key]; } catch { }
+                }
             }
 
             var value = random_values[random_user_data.Last()];
@@ -433,8 +475,11 @@ public class DriverAppProvider
 
             var random_user_data_block = new Dictionary<string, int[]>();
 
-            try { random_user_data_block = JsonConvert.DeserializeObject<Dictionary<string, int[]>>(File.ReadAllText(RANDOM_PATH)); } catch { }
-            try { random_user_data = random_user_data_block[key]; } catch { }
+            lock (RandomStorageLock)
+            {
+                try { random_user_data_block = JsonConvert.DeserializeObject<Dictionary<string, int[]>>(File.ReadAllText(RANDOM_PATH)); } catch { }
+                try { random_user_data = random_user_data_block[key]; } catch { }
+            }
 
             var available = new List<int>();
 
@@ -452,7 +497,10 @@ public class DriverAppProvider
             if (random_user_data_block.ContainsKey(key)) random_user_data_block[key] = random_user_data;
             else random_user_data_block.Add(key, random_user_data);
 
-            File.WriteAllText(RANDOM_PATH, JsonConvert.SerializeObject(random_user_data_block));
+            lock (RandomStorageLock)
+            {
+                File.WriteAllText(RANDOM_PATH, JsonConvert.SerializeObject(random_user_data_block));
+            }
         }
 
         public string GetRandomPhotoday()
@@ -467,15 +515,21 @@ public class DriverAppProvider
 
             var random_user_data_block = new Dictionary<string, int[]>();
 
-            try { random_user_data_block = JsonConvert.DeserializeObject<Dictionary<string, int[]>>(File.ReadAllText(RANDOM_PATH)); } catch { }
-            try { random_user_data = random_user_data_block[key]; } catch { }
+            lock (RandomStorageLock)
+            {
+                try { random_user_data_block = JsonConvert.DeserializeObject<Dictionary<string, int[]>>(File.ReadAllText(RANDOM_PATH)); } catch { }
+                try { random_user_data = random_user_data_block[key]; } catch { }
+            }
 
             if (random_user_data.Length == 0)
             {
                 SwitchRandomPhotoday();
 
-                try { random_user_data_block = JsonConvert.DeserializeObject<Dictionary<string, int[]>>(File.ReadAllText(RANDOM_PATH)); } catch { }
-                try { random_user_data = random_user_data_block[key]; } catch { }
+                lock (RandomStorageLock)
+                {
+                    try { random_user_data_block = JsonConvert.DeserializeObject<Dictionary<string, int[]>>(File.ReadAllText(RANDOM_PATH)); } catch { }
+                    try { random_user_data = random_user_data_block[key]; } catch { }
+                }
             }
 
             var value = random_values[random_user_data.Last()];
@@ -495,8 +549,11 @@ public class DriverAppProvider
 
             var random_user_data_block = new Dictionary<string, int[]>();
 
-            try { random_user_data_block = JsonConvert.DeserializeObject<Dictionary<string, int[]>>(File.ReadAllText(RANDOM_PATH)); } catch { }
-            try { random_user_data = random_user_data_block[key]; } catch { }
+            lock (RandomStorageLock)
+            {
+                try { random_user_data_block = JsonConvert.DeserializeObject<Dictionary<string, int[]>>(File.ReadAllText(RANDOM_PATH)); } catch { }
+                try { random_user_data = random_user_data_block[key]; } catch { }
+            }
 
             var available = new List<int>();
 
@@ -514,7 +571,10 @@ public class DriverAppProvider
             if (random_user_data_block.ContainsKey(key)) random_user_data_block[key] = random_user_data;
             else random_user_data_block.Add(key, random_user_data);
 
-            File.WriteAllText(RANDOM_PATH, JsonConvert.SerializeObject(random_user_data_block));
+            lock (RandomStorageLock)
+            {
+                File.WriteAllText(RANDOM_PATH, JsonConvert.SerializeObject(random_user_data_block));
+            }
         }
     }
 
@@ -539,59 +599,69 @@ public class DriverAppProvider
 
         result = CreateMD5(result);
 
-        access_keys.Add(result);
+        lock (AccessKeysLock)
+        {
+            access_keys.Add(result);
+        }
         
         return result;
     }
 
     public (bool, string, User) CreateSession(string login, string password)
     {
-        var users = GetUsers();
-
-        var user = users.FirstOrDefault(x => x.login == login && x.password == password);
-
-        if(user == null) return (false, null, null);
-
-        int lenght = 64;
-
-        byte[] result = new byte[lenght];
-
-        for (int i = 0; i < lenght; i++)
+        // Make session creation safe under concurrent logins.
+        lock (SessionStorageLock)
         {
-            result[i] = (byte)random.Next(0, 255);
+            // Ensure we're working with the latest on-disk storage.
+            LoadSessionStorage();
+
+            var users = GetUsers();
+            var user = users.FirstOrDefault(x => x.login == login && x.password == password);
+            if (user == null) return (false, null, null);
+
+            // Generate a session key that is unique for current storage.
+            string session;
+            do
+            {
+                int lenght = 64;
+                byte[] result = new byte[lenght];
+                for (int i = 0; i < lenght; i++)
+                {
+                    result[i] = (byte)random.Next(0, 255);
+                }
+                session = Convert.ToBase64String(result);
+            }
+            while (sessions_storage.ContainsKey(session));
+
+            sessions_storage[session] = user;
+            SaveSessionStorage();
+
+            return (true, session, user);
         }
-
-        var session = Convert.ToBase64String(result);
-
-        sessions_storage.Add(session, user);
-
-        SaveSessionStorage();
-
-        return (true, session, user);
     }
 
     public User Authorize(string session)
     {
-        LoadSessionStorage();
-
-        if (sessions_storage.ContainsKey(session))
+        lock (SessionStorageLock)
         {
+            LoadSessionStorage();
+
+            if (!sessions_storage.ContainsKey(session)) return null;
+
             var users = GetUsers();
-
             var user = sessions_storage[session];
-
             user = users.FirstOrDefault(x => x.login == user.login);
-
             return user;
         }
-        else return null;
     }
 
     public byte[] GetTables(string key)
     {
-        if (!access_keys.Contains(key)) return null;
-
-        access_keys.Remove(key);
+        lock (AccessKeysLock)
+        {
+            if (!access_keys.Contains(key)) return null;
+            access_keys.Remove(key);
+        }
 
         var tmpDir = Environment.CurrentDirectory + "/ziptmp/";
 
