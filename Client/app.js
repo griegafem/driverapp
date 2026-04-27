@@ -907,19 +907,29 @@ function postRequest(url, data, onError){
     const controller = new AbortController();
     const id = setTimeout(() => controller.abort(), 25000);
 
-    return new Promise((resolve, reject) => {
-        fetch(url, {
-            method: 'POST',
-			headers: {
-				"Content-Type": "application/json; charset=UTF-8"
-			  },
-            body: data,
-            signal: controller.signal
-        })
-        .then(response => response.json())
-        .then(data => {resolve(data)})
-        .catch(error => {console.error('Ошибка:', error); reject(error); onError()});})
-        .finally(() => clearTimeout(id));;
+    return fetch(url, {
+        method: 'POST',
+        headers: {
+            "Content-Type": "application/json; charset=UTF-8"
+        },
+        body: data,
+        signal: controller.signal
+    })
+    .then(async (response) => {
+        // Some proxies/errors may return HTML or empty body; keep UI responsive by always returning JSON-like object.
+        const text = await response.text();
+        try {
+            return JSON.parse(text || "{}");
+        } catch (e) {
+            return { status: "error", error: "BAD_RESPONSE", http_status: response.status, raw: text };
+        }
+    })
+    .catch(error => {
+        console.error('Ошибка:', error);
+        try { if (typeof onError === "function") onError(error); } catch (e) {}
+        return { status: "error", error: error && error.name === "AbortError" ? "TIMEOUT" : "NETWORK" };
+    })
+    .finally(() => clearTimeout(id));
 }
 
 function setRandomWheel(value){
