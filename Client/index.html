@@ -1,0 +1,480 @@
+<!DOCTYPE html>
+<html lang="ru">
+
+<head>
+	<meta charset="UTF-8" name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+	<title>Осмотр авто</title>
+	<link rel="stylesheet" href="./styles.css">
+	<script src="https://telegram.org/js/telegram-web-app.js"></script>
+</head>
+
+<body style="border-style: solid;" class="noselect">
+	
+	<div id="loading" style="position: fixed; background-color: #e9eeca; width: 100%; height: 100%; z-index: 150; left: 0; top: 0;">
+		<div id="loading_label" style="text-align: center; font-family: Roboto; font-size: 30px; margin-top: 250px;">Подключение...</div>
+		<div id="access_form" style="position: relative; top: 35%; text-align: center;" class="hidden">
+			<div id="access_attention" style="font-family: Roboto; color: crimson; font-size: 20px; margin-bottom: 25px;">У вас нет доступа к приложению</div>
+			<input id="fio" class="def_input" style="border-radius: 20px; width: 300px; height: 35px;" placeholder="Ваше ФИО">
+			<button id="access_button" class="def_button inactive" style="width: 300px;">Запросить доступ</button>
+		</div>
+
+	</div>
+
+	<div id="login-form" style="position: fixed; background-color: #e9eeca; width: 100%; height: 100%; z-index: 150; left: 0; top: 0;" class="hidden">
+		<div id="loading_label" style="position: fixed; text-align: center; font-family: Roboto; font-size: 30px; top: 30%; width: 100%;">Вход</div>
+		<div id="access_form" style="position: relative; top: 35%; text-align: center;">
+			<div id="login_attention" style="font-family: Roboto; color: crimson; font-size: 20px;" class="hidden">Неверный логин/пароль</div>
+			<input id="login" class="def_input" style="border-radius: 20px; width: 300px; height: 35px;" placeholder="Логин">
+			<input id="password" class="def_input" style="border-radius: 20px; width: 300px; height: 35px;" placeholder="Пароль">
+			<button id="login_button" class="def_button inactive" style="width: 300px;">Войти</button>
+		</div>
+
+	</div>
+	
+	<h2 style="position: block; text-align: center; font-family: Lobster; font-size: 55px; width: 100%; border-style: none; margin-top: -20px;">CheckUp</h2>
+	<div id="date" style="font-family: Roboto; margin-bottom: 20px; margin-top: -40px;">Дата: 12.12.12</div>
+	<div id="status" style="font-family: Roboto; margin-top: -15px;"></div>
+	
+	<div id="head_block" style="display: flex; height: 20px; margin-top: 15px;">
+		<div style="display: flex;">	
+			<div id="number" style="font-family: Roboto;">Госномер: </div>
+			<button id="number_change_button" class="hidden" style="margin-left: 10px; margin-top: -2px; border-radius: 10px; border-width: 1px; background-color:bisque; padding-left: 10px; padding-right: 10px; font-family: Roboto; font-size: 12px;">Сменить</button>
+		</div>
+		<input class="def_input" style="width: 250px; height: 27px; margin-top: -5px; margin-left: 10px; border-radius: 20px;" id="carSearch" placeholder="Начни вводить гос.номер">
+		<div id="brand" style="font-family: Roboto; margin-right: 10px; margin-left: 10px;" class="hidden"></div>
+		<div id="model" style="font-family: Roboto;" class="hidden"></div>
+	</div>
+	
+	<!-- <div id="number" style="position: absolute; margin-top: 38px; left: 0; width: 100%; border-style: none; border-width: 1px;"></div> -->
+	<input id="photoInput" type="file" accept="image/*" hidden>
+	
+    <!-- выбор авто -->
+	<div id="page-car" class="page active" style="overflow-y: hidden; margin-top: 50px;">
+		<div class="carList" style="height: 80px; border-style: none; overflow-y: scroll; padding: 10px; margin-top: -15px;" id="carList"></div>
+		<div style="position: absolute; margin: 10px; left: 0px; right: 0px;">
+			<button id="reports_button" class="def_button hidden">Отчёты</button>
+			<button id="pretrip_button" class="def_button inactive">Начать осмотр</button>
+			<button id="posttrip_button" class="def_button inactive">Осмотр по прибытии</button>
+			<button id="offschedule_button" class="def_button inactive" style="margin-top: 10px;">Внеочередной осмотр</button>
+			<button id="help_button" class="def_button">Help</button>
+		</div>
+	</div>
+
+	<div id="page-reports" class="page" style="margin-top: 50px;">
+		<button id="download_button" class="def_button">Скачать</button>
+		<button id="pre_report_button" class="def_button">Открыть отчёт до поездки</button>
+		<button id="post_report_button" class="def_button">Открыть отчёт по прибытии</button>
+		<button id="back_report_button" class="def_button">Назад</button>
+	</div>
+
+	<div id="page-help" class="page" style="margin-top: 50px;">
+		<button id="tg_button" class="def_button">Телеграм</button>
+		<button id="max_button" class="def_button">Макс</button>
+		<button id="email_button" class="def_button">Email</button>
+		<button id="back_help_button" class="def_button">Назад</button>
+		<div id="toast" style="opacity: 0; font-family: Roboto; text-align: center;" class="smooth">Email скопирован MYGaluev@mail.ru</div>
+	</div>
+	
+    <!-- осмотр -->
+	<div id="page-pretrip" class="page" style="margin-top: 50px;">
+
+		<div id="pt1">
+
+			<h3 style="height: 10px; margin-top: 20px;">Пробег</h3>
+			<input id="mileage" type="number" class="def_input" style="border-radius: 20px; width: 300px; height: 35px;" placeholder="Введите актульный пробег">
+			<div style="position: absolute; margin-top: -40px; margin-left: 310px; font-family: Roboto; font-size: 18px;">КМ</div>
+			
+			<div id="photoChoice_mileage"></div>
+
+			<div id="geo">
+				<h3>Геолокация</h3>
+				<div id="coords"></div>
+				<button id="getLocation_button" class="def_button">Получить геолокацию</button>
+			</div>
+
+			<div id="gsm">
+				<h3>ГСМ</h3>
+				
+				<div id="oliLevel" style="font-family: Roboto;">
+					<div style="display: flex; margin-top: 0px; font-family: Roboto;">Уровень масла проверен</div>
+					<label class="toggle" style="position: absolute; margin-top: -23px; margin-left: 200px;">
+						<input type="checkbox" id="oilSwitch">
+						<span class="slider"></span>
+					</label>
+
+					<div id="oilRange" class="range-container hidden" style="margin-top: 49px; margin-right: 15px;">
+						<div id="oilValue" style="display: block; position: absolute; margin-top: -68px; font-family: Roboto;">Уровень масла: -</div>
+						<span>MIN</span>			  
+						<input type="range" id="slider_oil" min="0" max="100" value="0">
+						<span>MAX</span>
+					</div>
+				</div>
+
+				<div id="antifreeze" style="font-family: Roboto; margin-top: 25px;">
+					<div style="display: flex; margin-top: 0px; font-family: Roboto;">Уровень антифриза в норме</div>
+					<label class="toggle" style="position: absolute; margin-top: -23px; margin-left: 225px;">
+						<input type="checkbox" id="antifreezeSwitch">
+						<span class="slider"></span>
+					</label>
+				</div>
+
+				<div id="brakefluid" style="margin-top: 25px;">
+					<div style="display: flex; margin-top: 0px; font-family: Roboto;">Уровень тормозной жидкости</div>
+					<div class="row" style="position: absolute; margin-top: -5px;">
+						<div class="col-xs-12">
+							<div class="switch">
+							<input id="switch-y" name="brakefluid_switch" type="radio" value="MIN" class="switch-input" />
+							<label for="switch-y" class="switch-label switch-label-y">MIN</label>
+							<input id="switch-i" name="brakefluid_switch" type="radio" value="NORM" class="switch-input" />
+							<label for="switch-i" class="switch-label switch-label-i">NORM</label>
+							<input id="switch-n" name="brakefluid_switch" type="radio" value="MAX" class="switch-input" />
+							<label for="switch-n" class="switch-label switch-label-n">MAX</label>
+							<input id="switch-y" name="brakefluid_switch" type="radio" value="NONE" class="switch-input" checked/>
+							<label for="switch-y" class="switch-label switch-label-o"></label>
+							<span class="switch-selector"></span>
+							</div>
+						</div>
+					</div>
+				</div>
+
+				<div id="glasswasher" style="font-family: Roboto; margin-top: 65px;">
+					<div style="display: flex; margin-top: 0px; font-family: Roboto;">Уровень омывающей жидкости более 80%</div>
+					<label class="toggle" style="position: absolute; margin-top: -23px; margin-left: 340px;">
+						<input type="checkbox" id="glasswasherSwitch">
+						<span class="slider"></span>
+					</label>
+				</div>
+
+				<div style="margin-top: 25px;">
+					<div style="font-family: Roboto;">Пожелания по автомобилю (*необязательно)</div>
+					<input id="additionalinfo" class="def_input" style="border-radius: 20px; width: 300px; height: 35px;">
+					<div style="font-family: Roboto;">Критические замечания (*необязательно)</div>
+					<input id="criticalinfo" class="def_input" style="border-radius: 20px; width: 300px; height: 35px;">
+				</div>
+
+			</div>
+
+			<button id="topt2" class="def_button">Продолжить</button>
+
+		</div>
+
+		<div id="pt2" class="hidden">
+
+			<div id="wheels">
+				
+				<h3>Колёса</h3>
+				
+				<div id="damagedwheel" style="font-family: Roboto; margin-top: 10px;">
+					<div style="display: flex; margin-top: 0px; font-family: Roboto;">Есть повреждение или прокол</div>
+					<label class="toggle" style="position: absolute; margin-top: -23px; margin-left: 245px;">
+						<input type="checkbox" id="damagedwheelSwitch">
+						<span class="slider red"></span>
+					</label>
+					<div id="damagedwheelAttention" style="position: absolute; margin-top: 5px; font-family: Arial, Helvetica, sans-serif; font-size: 15px; color: red;" class="hidden">Предупредим руководство. Сделай фото</div>
+				</div>
+
+				<div id="photoChoice_damagedwheel" style="margin-top: 20px;" class="photoChoice hidden">
+					<button id="damagedwheelPhoto_button" class="def_button" style="margin-right: 20px;">Сделать фото</button>
+					<button id="damagedwheelUpload_button" class="def_button" style="margin-right: 20px;">Загрузить фото из галереи...</button>
+				</div>
+
+				<div style="margin-top: 25px;">
+					<video id="video_damagedwheel" autoplay playsinline class="hidden" style="width: 95%;"></video>
+					<canvas id="canvas_damagedwheel" class="hidden" style="display: fixed; width: 95%;"></canvas>
+					<button id="snap_damagedwheel" class="def_button hidden">Сфоткать</button>
+					<button id="retry_damagedwheel" class="def_button hidden">Ещё раз</button>
+				</div>
+
+				<div id="wheelok" style="font-family: Roboto; margin-top: 35px;">
+					<div style="display: flex; margin-top: 0px; font-family: Roboto;">Колёса проверены и технически исправны</div>
+					<label class="toggle" style="position: absolute; margin-top: -23px; margin-left: 340px;">
+						<input type="checkbox" id="wheelokSwitch">
+						<span class="slider"></span>
+					</label>
+					<div id="wheelokInstruction" style="position: absolute; margin-top: 3px; font-family: Arial, Helvetica, sans-serif; font-size: 15px;" class="hidden">Сделай фото переднего левого колеса</div>
+				</div>
+
+				<div id="photoChoice_wheelok" style="margin-top: 20px;" class="photoChoice hidden">
+					<button id="wheelokPhoto_button" class="def_button" style="margin-right: 20px;">Сделать фото</button>
+					<button id="wheelokUpload_button" class="def_button" style="margin-right: 20px;">Загрузить фото из галереи...</button>
+				</div>
+
+				<div style="margin-top: 25px;">
+					<video id="video_wheelok" autoplay playsinline class="hidden" style="width: 95%;"></video>
+					<canvas id="canvas_wheelok" class="hidden" style="display: fixed; width: 95%;"></canvas>
+					<button id="snap_wheelok" class="def_button hidden">Сфоткать</button>
+					<button id="retry_wheelok" class="def_button hidden">Ещё раз</button>
+				</div>
+
+			</div>
+
+			<div>
+				<h3>Фото авто</h3>
+
+				<div id="hz">
+					<div id="prePhoto_1"></div>
+					<div id="prePhoto_2"></div>
+					<div id="prePhoto_3"></div>
+					<div id="prePhoto_4"></div>
+					
+					<div id="imposible_salon_pre" style="font-family: Roboto; margin-top: 25px; display: flex;">
+						<div style="display: flex; margin-top: 0px; font-family: Roboto;">Фото салона НЕВОЗМОЖНЫ</div>
+						<label class="toggle" style="margin-left: 15px; margin-top: -3px;">
+							<input type="checkbox" id="impossibleSwitchPre">
+							<span class="slider red"></span>
+						</label>
+					</div>
+					
+					<div id="salonPhotosPre">
+						<div id="prePhoto_5"></div>
+						<div id="prePhoto_6"></div>
+						<div id="prePhoto_7"></div>
+						<div id="prePhoto_8"></div>
+					</div>
+				</div>
+			</div>
+
+			<button id="topt3" class="def_button">Продолжить</button>
+		
+		</div>
+
+		<div id="pt3" class="hidden">
+
+			<div id="common">
+				<h3>Общие</h3>
+
+				<div id="fuelLevel" style="font-family: Roboto;">
+					<div class="range-container" style="margin-top: 49px; margin-right: 15px;">
+						<div id="fuelValue" style="display: block; position: absolute; margin-top: -68px; font-family: Roboto;">Уровень топлива: -</div>
+						<span>MIN</span>			  
+						<input type="range" id="slider_fuel" min="0" max="100" value="0">
+						<span>MAX</span>
+					</div>
+				</div>
+
+				<div id="clean" style="font-family: Roboto; margin-top: 25px;">
+					<div style="display: flex; margin-top: 0px; font-family: Roboto;">Автомобиль чистый</div>
+					<label class="toggle" style="position: absolute; margin-top: -23px; margin-left: 170px;">
+						<input type="checkbox" id="cleanSwitch">
+						<span class="slider"></span>
+					</label>
+				</div>
+
+				<div id="interior_ok" style="font-family: Roboto; margin-top: 25px;">
+					<div style="display: flex; margin-top: 0px; font-family: Roboto;">Салон проверен и чист</div>
+					<label class="toggle" style="position: absolute; margin-top: -23px; margin-left: 190px;">
+						<input type="checkbox" id="interior_okSwitch">
+						<span class="slider"></span>
+					</label>
+				</div>
+
+				<div id="details_ok" style="font-family: Roboto; margin-top: 25px;">
+					<div style="display: flex; margin-top: 0px; font-family: Roboto;">Сиденья, стёкла, коврики проверены</div>
+					<label class="toggle" style="position: absolute; margin-top: -23px; margin-left: 300px;">
+						<input type="checkbox" id="details_okSwitch">
+						<span class="slider"></span>
+					</label>
+				</div>
+
+			</div>
+
+			<div id="wifi-container" style="margin-top: 25px; height: 80px;"></div>
+			<div id="vpn-container" style="margin-top: 25px; height: 80px;"></div>
+
+			<div id="photoday">
+				
+				<h3>Фото дня</h3>
+
+				<div id="photodayInstruction" style="font-family: Arial, Helvetica, sans-serif; font-size: 15px;">Сделай фото переднего левого колеса</div>
+
+				<div id="photoChoice_photoday" style="margin-top: 20px;" class="photoChoice">
+					<button id="photodayPhoto_button" class="def_button" style="margin-right: 20px;">Сделать фото</button>
+					<button id="photodayUpload_button" class="def_button" style="margin-right: 20px;">Загрузить фото из галереи...</button>
+				</div>
+
+				<div style="margin-top: 25px;">
+					<video id="video_photoday" autoplay playsinline class="hidden" style="width: 95%;"></video>
+					<canvas id="canvas_photoday" class="hidden" style="display: fixed; width: 95%;"></canvas>
+					<button id="snap_photoday" class="def_button hidden">Сфоткать</button>
+					<button id="retry_photoday" class="def_button hidden">Ещё раз</button>
+				</div>
+
+			</div>
+
+			<div id="hi" style="font-family: Roboto; margin-top: 30px; text-align: center;">USERNAME, хорошего дня!</div>
+			<button id="sendPreCheckUp" class="def_button">Завершить осмотр</button>
+
+		</div>
+
+	</div>
+
+	 <!-- осмотр по прибытии -->
+	<div id="page-posttrip" class="page " style="margin-top: 50px;">
+		<div id="post-mileage">
+			<h3 style="height: 10px; margin-top: 20px;">Приборная панель</h3>
+			
+			<div id="panelerror" style="font-family: Roboto; margin-top: 25px; display: flex;">
+				<div style="display: flex; margin-top: 0px; font-family: Roboto;">Ошибок на панели приборов нет</div>
+				<label class="toggle" style="margin-left: 15px; margin-top: -3px;">
+					<input type="checkbox" id="panelErrorSwitch">
+					<span class="slider"></span>
+				</label>
+			</div>
+			
+			<div id="photoBlock_panel" class="hidden"></div>
+
+			<div id="mileage_post_block" class="hidden">
+				<input id="mileage_post" type="number" class="def_input" style="border-radius: 20px; width: 300px; height: 35px;" placeholder="Введите актульный пробег">
+				<div style="position: absolute; margin-top: -40px; margin-left: 310px; font-family: Roboto; font-size: 18px;">КМ</div>
+			</div>
+
+		</div>
+
+		<div id="post-photo">
+			<h3 style="height: 10px; margin-top: 20px;">Повреждения</h3>
+			
+			<div id="panelerror" style="font-family: Roboto; margin-top: 25px; display: flex;">
+				<div style="display: flex; margin-top: 0px; font-family: Roboto;">Есть повреждения кузова</div>
+				<label class="toggle" style="margin-left: 15px; margin-top: -3px;">
+					<input type="checkbox" id="damageSwitchPost">
+					<span class="slider red"></span>
+				</label>
+			</div>
+
+			<div id="damagePhoto" class="hidden">
+				<div id="damagedwheelAttention" style="margin-top: 5px; height: 20px; font-family: Arial, Helvetica, sans-serif; font-size: 15px; color: red;">Предупредим руководство. Сделай фото</div>
+			</div>
+
+			<div id="photoChoice_mileage_post" class="photoChoice hidden">
+				<div style="position: absolute;">Сделайте разборчивое фото панели приборов на заведённом авто</div>
+				<button id="mileage_postPhoto_button" class="def_button" style="margin-right: 20px; margin-top: 50px;">Сделать фото</button>
+				<button id="mileage_postUpload_button" class=" def_button" style="margin-right: 20px; margin-top: 50px;">Загрузить фото из галереи...</button>
+			</div>
+
+			<div style="margin-top: 25px;">
+				<video id="video_mileage_post" autoplay playsinline class="hidden" style="width: 95%;"></video>
+				<canvas id="canvas_mileage_post" class="hidden" style="display: fixed; width: 95%;"></canvas>
+				<button id="snap_mileage_post" class="def_button hidden">Сфоткать</button>
+				<button id="retry_mileage_post" class="def_button hidden">Ещё раз</button>
+			</div>
+
+			<div id="mileage_post_block" class="hidden">
+				<input id="mileage_post" type="number" class="def_input" style="border-radius: 20px; width: 300px; height: 35px;" placeholder="Введите актульный пробег">
+				<div style="position: absolute; margin-top: -40px; margin-left: 310px; font-family: Roboto; font-size: 18px;">КМ</div>
+			</div>
+
+			<h3 style="height: 10px; margin-top: 20px;">Фото авто</h3>
+
+			<div id="damagePhotos">
+				<div id="postPhoto_1"></div>
+				<div id="postPhoto_2"></div>
+				<div id="postPhoto_3"></div>
+				<div id="postPhoto_4"></div>
+				
+				<div id="imposible_salon" style="font-family: Roboto; margin-top: 25px; display: flex;">
+					<div style="display: flex; margin-top: 0px; font-family: Roboto;">Фото салона НЕВОЗМОЖНЫ</div>
+					<label class="toggle" style="margin-left: 15px; margin-top: -3px;">
+						<input type="checkbox" id="impossibleSwitch">
+						<span class="slider red"></span>
+					</label>
+				</div>
+				
+				<div id="salonPhotos">
+					<div id="postPhoto_5"></div>
+					<div id="postPhoto_6"></div>
+					<div id="postPhoto_7"></div>
+					<div id="postPhoto_8"></div>
+				</div>
+				
+			</div>
+
+			<div id="salonPhotos">
+				<h3>Фото дня</h3>
+
+				<div id="photodayInstruction_2" style="font-family: Arial, Helvetica, sans-serif; font-size: 15px;">Сделай фото переднего левого колеса</div>
+
+				<div id="postPhoto_9"></div>
+			</div>
+
+		</div>
+
+		<div id="post-photo">
+			<h3 style="height: 10px; margin-top: 20px;">Местоположение авто</h3>
+
+			<div style="font-family: Roboto;">Опиши где оставлен авто</div>
+			<input id="location_post" class="def_input" style="border-radius: 20px; width: 300px; height: 35px;" placeholder="Город, локация">
+			
+			<button id="getLocation_2" class="def_button">Получить геолокацию</button>
+			<div id="coords_2"></div>
+
+			<div style="margin-top: 25px;">
+				<div style="font-family: Roboto;">Для информации (*необязательно)</div>
+				<input id="additionalinfo_post" class="def_input" style="border-radius: 20px; width: 300px; height: 35px;">
+				<div style="font-family: Roboto;">Критические замечания (*необязательно)</div>
+				<input id="criticalinfo_post" class="def_input" style="border-radius: 20px; width: 300px; height: 35px;">
+			</div>
+
+			<button id="sendPostCheckUp" class="def_button">Завершить осмотр</button>
+		</div>
+	
+	</div>
+	
+    <!-- фото -->
+	<div id="page-photo" class="page" style="margin-top: 50px;">
+		<div style="font-family: Roboto;">Сделайте фото</div>
+		<input id="cameraInput" type="file" accept="image/*" capture="environment" hidden>
+		<video id="video" autoplay playsinline style="display: fixed; width: 100%;"></video>
+		<canvas id="canvas" class="hidden" style="display: fixed; width: 100%;"></canvas>
+		<button id="snap" class="def_button">Сфоткать</button>
+		<button id="retry" class="def_button hidden">Ещё раз</button>
+		<div id="msg" style="display: none;">MSG</div>
+		<input id="photo" class="hidden" type="file" accept="image/*" capture="environment">
+		<button id="toGeo" class="def_button inactive">Далее</button>
+	</div>
+	
+    <!-- геолокация -->
+	<div id="page-geo" class="page" style="margin-top: 50px;">
+		<h3>Геолокация</h3>
+		<button id="getLocation" class="def_button">Получить геолокацию</button>
+		<div id="coords"></div>
+		<button id="send" class="def_button">Отправить</button>
+	</div>
+
+	<div id="photoBlockTemplate" style="display: none;">
+		<div id="info_photoBlockTemplate" style="display: none;">Описание</div>
+		<div id="photoChoice_photoBlockTemplate" class="photoChoice">
+			<button id="photoBlockTemplate_photo_button" class="def_button" style="margin-right: 20px;">Сделать фото</button>
+			<button id="photoBlockTemplate_upload_button" class=" def_button" style="margin-right: 20px;">Загрузить фото из галереи...</button>
+		</div>
+
+		<div style="margin-top: 25px;">
+			<video id="video_photoBlockTemplate" autoplay playsinline class="hidden" style="width: 95%;"></video>
+			<canvas id="canvas_photoBlockTemplate" class="hidden" style="display: fixed; width: 100px;"></canvas>
+			<button id="snap_photoBlockTemplate" class="def_button hidden">Сфоткать</button>
+			<button id="retry_photoBlockTemplate" class="def_button hidden">Ещё раз</button>
+		</div>
+	</div>
+
+	<div id="switch-container-template" style="margin-top: 25px; height: 80px;" class="hidden">
+		<div id="triple-switch-title" style="display: flex; margin-top: 0px; font-family: Roboto;">Wi-Fi</div>
+		<div class="row" style="position: absolute; margin-top: -5px;">
+		<div class="col-xs-12">
+			<div class="switch">
+				<input id="switch-z" name="triple_switch" type="radio" value="A" class="switch-input" />
+				<label id="switch-zl" for="switch-z" class="switch-label switch-label-y">Не работает</label>
+				<input id="switch-x" name="triple_switch" type="radio" value="B" class="switch-input" />
+				<label id="switch-xl" for="switch-x" class="switch-label switch-label-i">Не предусмотрен</label> 
+				<input id="switch-c" name="triple_switch" type="radio" value="C" class="switch-input" />
+				<label id="switch-cl" for="switch-c" class="switch-label switch-label-n">Работает</label>
+				<input id="switch-o" name="triple_switch" type="radio" value="NONE" class="switch-input" checked/>
+				<label id="switch-ol" for="switch-o" class="switch-label switch-label-o"></label>
+				<span class="switch-selector"></span>
+			</div>
+		</div>
+		</div>
+	</div>
+
+	<script src="./app.js"></script>
+</body>
+
+</html>

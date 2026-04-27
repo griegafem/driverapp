@@ -1,0 +1,15 @@
+services:
+  motorsharks:
+    build:
+      context: .
+      dockerfile: ServerLinux/Dockerfile
+    container_name: motorsharks
+    ports:
+      - "8080:8080"
+    environment:
+      ASPNETCORE_URLS: "http://0.0.0.0:8080"
+      MOTORSHARKS_DATA_DIR: "/app/data"
+    volumes:
+      - ./data:/app/data
+    restart: unless-stopped
+
