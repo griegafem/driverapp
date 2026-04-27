@@ -1,4 +1,5 @@
-var endpoint = "https://www.motorsharks.online";
+// Use same-origin API endpoint so deployments behind different domains keep working.
+var endpoint = window.location.origin;
 
 const tg = window.Telegram.WebApp;
 
@@ -79,13 +80,12 @@ var session = localStorage.getItem('session');
 if(session != null){
 	postRequest(endpoint + "/api/authorize", JSON.stringify({session: session})).then(response => {
 		var status = response.status;
-		
-		var name = response.name;
 		console.log(response);
 	
 		if(status == "error"){
-			// get('loading_label').classList.add('hidden');
-			// get('access_form').classList.remove('hidden');
+			// Session is invalid/expired or request failed – don't keep retrying forever.
+			try { localStorage.removeItem('session'); } catch(e) {}
+			get('loading').classList.add('hidden');
 			get('login-form').classList.remove('hidden');
 		}else{
 			get('loading').classList.add('hidden');
@@ -102,6 +102,7 @@ if(session != null){
 		}
 	});
 }else{
+	get('loading').classList.add('hidden');
 	get('login-form').classList.remove('hidden');
 }
 
