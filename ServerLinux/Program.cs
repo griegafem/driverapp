@@ -27,7 +27,7 @@ static string GetDataRoot(string contentRoot, string repoRoot)
 
     // Default for dev (repo) and for container/publish (content root).
     var repoData = Path.Combine(repoRoot, "data");
-    if (Directory.Exists(repoData) || File.Exists(Path.Combine(repoData, "users.xlsx"))) return repoData;
+    if (Directory.Exists(repoData)) return repoData;
 
     return Path.Combine(contentRoot, "data");
 }
@@ -41,14 +41,124 @@ Directory.CreateDirectory(photoRoot);
 EnsureLocalAssets(repoRoot, dataRoot);
 
 var driverApp = new DriverAppProvider();
-driverApp.SetUserTable(Path.Combine(dataRoot, "users.xlsx"));
-driverApp.SetCarsTable(Path.Combine(dataRoot, "cars.xlsx"));
 driverApp.SetCheckUpTable(Path.Combine(dataRoot, "checkups.xlsx"));
 driverApp.SetPostCheckUpTable(Path.Combine(dataRoot, "post_checkups.xlsx"));
 driverApp.SetRandomTable(Path.Combine(dataRoot, "random.xlsx"));
 
+var userDb = new UserDb(Path.Combine(dataRoot, "users.db"));
+userDb.EnsureCreatedAndSeed();
+var sessionStore = new SessionStore(Path.Combine(dataRoot, "sessionstorage"));
+userDb.SeedFromJsonFile(Path.Combine(dataRoot, "seed", "users.json"));
+
+var carDb = new CarDb(Path.Combine(dataRoot, "cars.db"));
+carDb.EnsureCreatedAndSeed();
+carDb.SeedFromJsonFile(Path.Combine(dataRoot, "seed", "cars.json"));
+TryMigrateCarsFromExcelAndDelete(dataRoot, carDb);
+
 // Health
 app.MapGet("/test", () => Results.Text("OK"));
+
+// Support links page
+app.MapGet("/help", () =>
+{
+    var html = """
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Техподдержка</title>
+  <style>
+    :root{
+      --bg:#f7f7f7;
+      --card:#ffffff;
+      --text:#111827;
+      --muted:#6b7280;
+      --border:#e5e7eb;
+      --shadow:0 16px 44px rgba(17,24,39,0.12);
+      --radius:16px;
+      --accent:#2563eb;
+    }
+    html,body{ height:100%; }
+    body{
+      margin:0;
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+      background:var(--bg);
+      color:var(--text);
+      display:flex;
+      align-items:flex-start;
+      justify-content:center;
+      padding:18px;
+      line-height:1.55;
+    }
+    .wrap{
+      width:min(520px, 100%);
+      margin-top:10vh;
+      text-align:center;
+    }
+    .logo{
+      width:120px; height:120px;
+      border-radius:28px;
+      object-fit:contain;
+      background:#fff;
+      box-shadow:var(--shadow);
+    }
+    .card{
+      margin-top:22px;
+      background:var(--card);
+      border:1px solid var(--border);
+      border-radius:var(--radius);
+      box-shadow:0 10px 26px rgba(17,24,39,0.10);
+      padding:18px;
+      text-align:left;
+    }
+    h1{
+      font-size:18px;
+      margin:0 0 6px 0;
+    }
+    p{ margin:0 0 14px 0; color:var(--muted); font-size:14px; }
+    .grid{ display:grid; gap:10px; }
+    a.btn{
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      gap:10px;
+      padding:12px 14px;
+      border-radius:14px;
+      text-decoration:none;
+      background:var(--accent);
+      color:#fff;
+      border:1px solid rgba(37,99,235,0.22);
+      transition: filter 160ms ease, transform 160ms ease, box-shadow 160ms ease;
+      box-shadow:0 10px 26px rgba(37,99,235,0.22);
+      font-weight:600;
+    }
+    a.btn:hover{ filter:brightness(0.95); box-shadow:0 14px 32px rgba(37,99,235,0.26); }
+    a.btn:active{ transform:translateY(1px) scale(0.99); filter:brightness(0.9); }
+    .hint{ margin-top:12px; font-size:12px; color:var(--muted); text-align:center; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <img class="logo" src="/driver-app/assets/logo.png" alt="Motorsharks" />
+    <div class="card">
+      <h1>Техподдержка</h1>
+      <p>Выберите удобный канал связи.</p>
+      <div class="grid">
+        <a class="btn" href="https://t.me/MYGaluev" target="_blank" rel="noreferrer">Telegram @MYGaluev</a>
+        <a class="btn" href="https://max.ru/u/f9LHodD0cOJ3DcJeZVA5I03gITNYuxRVnfnsgHIzIhWxJgHyo7Eu_UiJOM0" target="_blank" rel="noreferrer">Max</a>
+        <a class="btn" href="mailto:MYGaluev@mail.ru">Email</a>
+        <a class="btn" href="/driver-app/">← Вернуться в приложение</a>
+      </div>
+      <div class="hint">Если ссылки не открываются внутри WebApp — откройте в браузере.</div>
+    </div>
+  </div>
+</body>
+</html>
+""";
+
+    return Results.Text(html, "text/html; charset=utf-8");
+});
 
 // Static driver app (from Client/)
 var clientDirCandidates = new[]
@@ -77,9 +187,203 @@ else
 // Minimal API used by client
 app.MapGet("/api/cars", () =>
 {
-    var cars = driverApp.GetCars();
-    var payload = JsonConvert.SerializeObject(cars.Select(x => new { number = (x.number ?? "").ToUpperInvariant() }).ToArray());
-    return Results.Text(payload, "application/json; charset=utf-8");
+    try
+    {
+        static string? Clean(string? s)
+        {
+            if (string.IsNullOrWhiteSpace(s)) return null;
+            return s.Trim();
+        }
+
+        var cars = carDb.GetAll();
+
+        var payload = JsonConvert.SerializeObject(new
+        {
+            status = "ok",
+            cars = cars
+                .Where(c => !string.IsNullOrWhiteSpace(c.Number))
+                .Select(c => new
+                {
+                    plateNumber = Clean(c.Number)?.ToUpperInvariant(),
+                    brand = Clean(c.Brand),
+                    model = Clean(c.Model),
+                    vin = Clean(c.Vin),
+                    year = Clean(c.Year),
+                    department = Clean(c.Department),
+                    responsible = Clean(c.Responsible),
+                })
+                .ToArray()
+        });
+
+        return Results.Text(payload, "application/json; charset=utf-8");
+    }
+    catch (Exception ex)
+    {
+        return Results.Text(JsonConvert.SerializeObject(new { status = "error", error = "CARS_READ_ERROR", message = ex.Message }), "application/json; charset=utf-8");
+    }
+});
+
+static IResult CarsForbidden() =>
+    Results.Text(JsonConvert.SerializeObject(new { status = "error", error = "FORBIDDEN" }), "application/json; charset=utf-8");
+
+app.MapGet("/api/admin/cars", (HttpRequest request) =>
+{
+    var session = request.Query["session"].ToString();
+    var admin = RequireAdmin(userDb, sessionStore, session);
+    if (admin == null) return CarsForbidden();
+
+    var cars = carDb.GetAll()
+        .Select(c => new
+        {
+            id = c.Id,
+            number = c.Number ?? "",
+            brand = c.Brand ?? "",
+            model = c.Model ?? "",
+            color = c.Color ?? "",
+            vin = c.Vin ?? "",
+            year = c.Year ?? "",
+            department = c.Department ?? "",
+            responsible = c.Responsible ?? "",
+        })
+        .ToArray();
+
+    return Results.Text(JsonConvert.SerializeObject(new { status = "ok", cars }), "application/json; charset=utf-8");
+});
+
+app.MapPost("/api/admin/cars/upsert", async (HttpRequest request) =>
+{
+    var body = await ReadBodyAsync(request);
+    dynamic root = JObject.Parse(body);
+    var session = (string?)root.session ?? "";
+    var admin = RequireAdmin(userDb, sessionStore, session);
+    if (admin == null) return CarsForbidden();
+
+    dynamic c = root.car;
+    string GetStr(dynamic d, string key) => ((string?)d?[key] ?? "").Trim();
+    var id = (long?)c.id ?? 0;
+    var number = GetStr(c, "number");
+    if (string.IsNullOrWhiteSpace(number))
+        return Results.Text(JsonConvert.SerializeObject(new { status = "error", error = "BAD_DATA" }), "application/json; charset=utf-8");
+
+    carDb.Upsert(new CarDb.CarRecord
+    {
+        Id = id,
+        Number = number,
+        Brand = GetStr(c, "brand"),
+        Model = GetStr(c, "model"),
+        Color = GetStr(c, "color"),
+        Vin = GetStr(c, "vin"),
+        Year = GetStr(c, "year"),
+        Department = GetStr(c, "department"),
+        Responsible = GetStr(c, "responsible"),
+    });
+
+    return Results.Text(JsonConvert.SerializeObject(new { status = "ok" }), "application/json; charset=utf-8");
+});
+
+app.MapPost("/api/admin/cars/delete", async (HttpRequest request) =>
+{
+    var body = await ReadBodyAsync(request);
+    dynamic root = JObject.Parse(body);
+    var session = (string?)root.session ?? "";
+    var admin = RequireAdmin(userDb, sessionStore, session);
+    if (admin == null) return CarsForbidden();
+
+    var id = (long?)root.id;
+    if (id == null || id <= 0)
+        return Results.Text(JsonConvert.SerializeObject(new { status = "error", error = "BAD_ID" }), "application/json; charset=utf-8");
+
+    var deleted = carDb.DeleteById(id.Value);
+    return Results.Text(JsonConvert.SerializeObject(new { status = "ok", deleted }), "application/json; charset=utf-8");
+});
+
+static bool IsAdminRole(string? role)
+{
+    var r = (role ?? "").Trim().ToLowerInvariant();
+    return r is "admin" or "owner";
+}
+
+static UserDb.UserRecord? RequireAdmin(UserDb userDb, SessionStore sessions, string session)
+{
+    if (string.IsNullOrWhiteSpace(session)) return null;
+    var login = sessions.GetLogin(session);
+    if (string.IsNullOrWhiteSpace(login)) return null;
+    var u = userDb.GetByLogin(login);
+    if (u == null) return null;
+    return IsAdminRole(u.Role) ? u : null;
+}
+
+static IResult UsersForbidden() =>
+    Results.Text(JsonConvert.SerializeObject(new { status = "error", error = "FORBIDDEN" }), "application/json; charset=utf-8");
+
+app.MapGet("/api/users", (HttpRequest request) =>
+{
+    var session = request.Query["session"].ToString();
+    var admin = RequireAdmin(userDb, sessionStore, session);
+    if (admin == null) return UsersForbidden();
+
+    var users = userDb.GetAll()
+        .Select(u => new
+        {
+            id = u.Id,
+            surname = u.Surname ?? "",
+            name = u.Name ?? "",
+            patronymic = u.Patronymic ?? "",
+            phone = u.Phone ?? "",
+            role = (u.Role ?? "").ToLowerInvariant(),
+            login = u.Login ?? "",
+            password = u.Password ?? "",
+        })
+        .ToArray();
+
+    return Results.Text(JsonConvert.SerializeObject(new { status = "ok", users }), "application/json; charset=utf-8");
+});
+
+app.MapPost("/api/users/upsert", async (HttpRequest request) =>
+{
+    var body = await ReadBodyAsync(request);
+    dynamic root = JObject.Parse(body);
+    var session = (string?)root.session ?? "";
+    var admin = RequireAdmin(userDb, sessionStore, session);
+    if (admin == null) return UsersForbidden();
+
+    dynamic u = root.user;
+    string GetStr(dynamic d, string key) => ((string?)d?[key] ?? "").Trim();
+    var id = (long?)u.id ?? 0;
+    var login = GetStr(u, "login");
+    var password = GetStr(u, "password");
+    if (string.IsNullOrWhiteSpace(login) || string.IsNullOrWhiteSpace(password))
+        return Results.Text(JsonConvert.SerializeObject(new { status = "error", error = "BAD_DATA" }), "application/json; charset=utf-8");
+
+    userDb.Upsert(new UserDb.UserRecord
+    {
+        Id = id,
+        Login = login,
+        Password = password,
+        Role = UserDb.NormalizeRole(GetStr(u, "role")),
+        Surname = GetStr(u, "surname"),
+        Name = GetStr(u, "name"),
+        Patronymic = GetStr(u, "patronymic"),
+        Phone = GetStr(u, "phone"),
+    });
+
+    return Results.Text(JsonConvert.SerializeObject(new { status = "ok" }), "application/json; charset=utf-8");
+});
+
+app.MapPost("/api/users/delete", async (HttpRequest request) =>
+{
+    var body = await ReadBodyAsync(request);
+    dynamic root = JObject.Parse(body);
+    var session = (string?)root.session ?? "";
+    var admin = RequireAdmin(userDb, sessionStore, session);
+    if (admin == null) return UsersForbidden();
+
+    var id = (long?)root.id;
+    if (id == null || id <= 0)
+        return Results.Text(JsonConvert.SerializeObject(new { status = "error", error = "BAD_ID" }), "application/json; charset=utf-8");
+
+    var deleted = userDb.DeleteById(id.Value);
+    return Results.Text(JsonConvert.SerializeObject(new { status = "ok", deleted }), "application/json; charset=utf-8");
 });
 
 app.MapPost("/api/get-car", async (HttpRequest request) =>
@@ -89,11 +393,10 @@ app.MapPost("/api/get-car", async (HttpRequest request) =>
     var number = (string?)obj["number"];
     if (string.IsNullOrWhiteSpace(number)) return Results.Text("CAR_NOT_FOUND");
 
-    var cars = driverApp.GetCars();
-    var car = cars.FirstOrDefault(x => string.Equals(x.number, number, StringComparison.OrdinalIgnoreCase));
+    var car = carDb.GetByNumber(number);
     if (car == null) return Results.Text("CAR_NOT_FOUND");
 
-    var result = JsonConvert.SerializeObject(new { brand = car.brand, model = car.model });
+    var result = JsonConvert.SerializeObject(new { brand = car.Brand, model = car.Model });
     return Results.Text(result, "application/json; charset=utf-8");
 });
 
@@ -105,19 +408,19 @@ app.MapPost("/api/login", async (HttpRequest request) =>
     var login = (string?)obj["login"];
     var password = (string?)obj["password"];
 
-    var (success, session, user) = driverApp.CreateSession(login ?? "", password ?? "");
-    if (!success || user == null)
+    var user = userDb.GetByLogin(login ?? "");
+    if (user == null)
     {
         return Results.Text(JsonConvert.SerializeObject(new { status = "error", error = "USER_NOT_FOUND" }), "application/json; charset=utf-8");
     }
 
-    if (user.password != password)
-    {
+    if (!string.Equals(user.Password ?? "", password ?? "", StringComparison.Ordinal))
         return Results.Text(JsonConvert.SerializeObject(new { status = "error", error = "WRONG_DATA" }), "application/json; charset=utf-8");
-    }
+
+    var session = sessionStore.Create(user.Login);
 
     string access_key = "";
-    if (user.role == "Admin" || user.role == "Owner" || user.role == "Report")
+    if (IsAdminRole(user.Role))
     {
         access_key = driverApp.CreateAccessKey();
     }
@@ -125,13 +428,13 @@ app.MapPost("/api/login", async (HttpRequest request) =>
     var payload = JsonConvert.SerializeObject(new
     {
         status = "ok",
-        user.name,
-        user.surname,
-        user.role,
+        name = user.Name,
+        surname = user.Surname,
+        role = (user.Role ?? "").ToLowerInvariant(),
         access_key,
         session,
-        random_wheel = user.GetRandomWheel(),
-        photoday = user.GetRandomPhotoday()
+        random_wheel = "",
+        photoday = ""
     });
 
     return Results.Text(payload, "application/json; charset=utf-8");
@@ -148,14 +451,15 @@ app.MapPost("/api/authorize", async (HttpRequest request) =>
         return Results.Text("{\"status\":\"error\"}", "application/json; charset=utf-8");
     }
 
-    var user = driverApp.Authorize(session);
+    var login = sessionStore.GetLogin(session);
+    var user = string.IsNullOrWhiteSpace(login) ? null : userDb.GetByLogin(login);
     if (user == null)
     {
         return Results.Text(JsonConvert.SerializeObject(new { status = "error", error = "USER_NOT_FOUND" }), "application/json; charset=utf-8");
     }
 
     string access_key = "";
-    if (user.role == "Admin" || user.role == "Owner" || user.role == "Report")
+    if (IsAdminRole(user.Role))
     {
         access_key = driverApp.CreateAccessKey();
     }
@@ -163,12 +467,12 @@ app.MapPost("/api/authorize", async (HttpRequest request) =>
     var payload = JsonConvert.SerializeObject(new
     {
         status = "ok",
-        user.name,
-        user.surname,
-        user.role,
+        name = user.Name,
+        surname = user.Surname,
+        role = (user.Role ?? "").ToLowerInvariant(),
         access_key,
-        random_wheel = user.GetRandomWheel(),
-        photoday = user.GetRandomPhotoday()
+        random_wheel = "",
+        photoday = ""
     });
 
     return Results.Text(payload, "application/json; charset=utf-8");
@@ -205,21 +509,32 @@ app.MapPost("/api/pre-checkup", async (HttpRequest request) =>
     var body = await ReadBodyAsync(request);
     dynamic root = JObject.Parse(body);
     var session = (string?)root.session;
-    var user = driverApp.Authorize(session ?? "");
+    var login = sessionStore.GetLogin(session);
+    var user = string.IsNullOrWhiteSpace(login) ? null : userDb.GetByLogin(login);
     if (user == null) return Results.Text("");
 
     dynamic obj = root.data;
 
-    var cars = driverApp.GetCars();
+    var carRec = carDb.GetByNumber((string?)obj.number);
     DriverAppProvider.Car car = new();
-    try { car = cars.First(x => string.Equals(x.number, (string?)obj.number, StringComparison.OrdinalIgnoreCase)); } catch { }
+    if (carRec != null)
+    {
+        car.number = carRec.Number;
+        car.brand = carRec.Brand;
+        car.model = carRec.Model;
+        car.vin = carRec.Vin;
+        car.color = carRec.Color;
+        car.year = carRec.Year;
+        car.department = carRec.Department;
+        car.responsible = carRec.Responsible;
+    }
 
     var row = new ExcelProvider.Row();
 
     row.Add("Дата записи", (string?)obj.date ?? "");
     row.Add("Время завершения отчёта", (string?)obj.date_2 ?? (string?)obj.date ?? "");
-    row.Add("Фамилия пользователя", user.surname);
-    row.Add("Имя пользователя", user.name);
+    row.Add("Фамилия пользователя", user.Surname);
+    row.Add("Имя пользователя", user.Name);
     row.Add("Тип отчёта", (string?)obj.type ?? "");
     row.Add("ID автомобиля", (string?)obj.car_id ?? "");
     row.Add("Марка автомобиля", car.brand);
@@ -256,7 +571,6 @@ app.MapPost("/api/pre-checkup", async (HttpRequest request) =>
     TryAddPhoto(row, "Фото открытая задняя левая дверь", (string?)obj.photo_ibl, car, "Фото открытая задняя левая дверь", dataRoot);
     TryAddPhoto(row, "Фото дня", (string?)obj.photo_of_day, car, "Фото дня", dataRoot);
 
-    try { user.SwitchRandomWheel(); user.SwitchRandomPhotoday(); } catch { }
     driverApp.AddCheckUp(row);
 
     return Results.Text(JsonConvert.SerializeObject(new { status = "ok" }), "application/json; charset=utf-8");
@@ -267,21 +581,32 @@ app.MapPost("/api/post-checkup", async (HttpRequest request) =>
     var body = await ReadBodyAsync(request);
     dynamic root = JObject.Parse(body);
     var session = (string?)root.session;
-    var user = driverApp.Authorize(session ?? "");
+    var login = sessionStore.GetLogin(session);
+    var user = string.IsNullOrWhiteSpace(login) ? null : userDb.GetByLogin(login);
     if (user == null) return Results.Text("");
 
     dynamic obj = root.data;
 
-    var cars = driverApp.GetCars();
+    var carRec = carDb.GetByNumber((string?)obj.number);
     DriverAppProvider.Car car = new();
-    try { car = cars.First(x => string.Equals(x.number, (string?)obj.number, StringComparison.OrdinalIgnoreCase)); } catch { }
+    if (carRec != null)
+    {
+        car.number = carRec.Number;
+        car.brand = carRec.Brand;
+        car.model = carRec.Model;
+        car.vin = carRec.Vin;
+        car.color = carRec.Color;
+        car.year = carRec.Year;
+        car.department = carRec.Department;
+        car.responsible = carRec.Responsible;
+    }
 
     var row = new ExcelProvider.Row();
 
     row.Add("Дата записи", (string?)obj.date ?? "");
     row.Add("Время завершения отчёта", DateTime.Now.ToString());
-    row.Add("Фамилия пользователя", user.surname);
-    row.Add("Имя пользователя", user.name);
+    row.Add("Фамилия пользователя", user.Surname);
+    row.Add("Имя пользователя", user.Name);
     row.Add("Тип отчёта", (string?)obj.type ?? "");
     row.Add("ID автомобиля", (string?)obj.car_id ?? "");
     row.Add("Марка автомобиля", car.brand);
@@ -320,7 +645,6 @@ app.MapPost("/api/post-checkup", async (HttpRequest request) =>
     TryAddPhoto(row, "Фото дня", (string?)obj.photo_of_day, car, "По приезду Фото дня", dataRoot);
     TryAddPhoto(row, "Фото повреждения", (string?)obj.damage_photo, car, "По приезду Повреждение", dataRoot);
 
-    try { user.SwitchRandomWheel(); user.SwitchRandomPhotoday(); } catch { }
     driverApp.AddPostCheckUp(row);
 
     return Results.Text(JsonConvert.SerializeObject(new { status = "ok" }), "application/json; charset=utf-8");
@@ -469,35 +793,6 @@ img { max-width:100px; }
 
 static void EnsureLocalAssets(string repoRoot, string dataRoot)
 {
-    EnsureXlsx(
-        Path.Combine(dataRoot, "users.xlsx"),
-        new[]
-        {
-            "Фамилия",
-            "Имя",
-            "Отчество",
-            "Номер телефона",
-            "Права доступа",
-            "Логин",
-            "Пароль",
-            "Telegram ID",
-        },
-        seedFirstDataRow: new[] { "Иванов", "Иван", "Иванович", "+79990000000", "Admin", "admin", "admin", "0" }
-    );
-
-    EnsureXlsx(
-        Path.Combine(dataRoot, "cars.xlsx"),
-        new[]
-        {
-            "Гос.номер",
-            "Марка",
-            "Модель",
-            "VIN",
-            "Цвет",
-        },
-        seedFirstDataRow: new[] { "А000АА00", "Lada", "Vesta", "", "" }
-    );
-
     var checkupHeaders = new[]
     {
         "Дата записи",
@@ -556,6 +851,7 @@ static void EnsureLocalAssets(string repoRoot, string dataRoot)
     );
 }
 
+
 static void EnsureXlsx(string filepath, string[] headers, string[]? seedFirstDataRow = null)
 {
     if (File.Exists(filepath)) return;
@@ -577,4 +873,47 @@ static void EnsureXlsx(string filepath, string[] headers, string[]? seedFirstDat
     }
 
     wb.SaveAs(filepath);
+}
+
+static void TryMigrateCarsFromExcelAndDelete(string dataRoot, CarDb carDb)
+{
+    try
+    {
+        var legacyPath = Path.Combine(dataRoot, "cars.xlsx");
+        if (!File.Exists(legacyPath)) return;
+
+        // Only migrate if DB is effectively empty (seed-only).
+        if (carDb.Count() > 1) return;
+
+        using var wb = new XLWorkbook(legacyPath);
+        var ws = wb.Worksheet(1);
+        var last = ws.LastRowUsed()?.RowNumber() ?? 1;
+        if (last <= 1) return;
+
+        string ReadCell(int row, int col) => ws.Cell(row, col).GetString()?.Trim() ?? "";
+
+        // Legacy columns (best-effort):
+        // 1 number, 2 brand, 3 model, 4 vin, 5 color
+        for (int r = 2; r <= last; r++)
+        {
+            var number = ReadCell(r, 1);
+            if (string.IsNullOrWhiteSpace(number)) continue;
+
+            carDb.Upsert(new CarDb.CarRecord
+            {
+                Number = number,
+                Brand = ReadCell(r, 2),
+                Model = ReadCell(r, 3),
+                Vin = ReadCell(r, 4),
+                Color = ReadCell(r, 5),
+            });
+        }
+
+        // After successful migration, delete legacy file (requested).
+        try { File.Delete(legacyPath); } catch { }
+    }
+    catch
+    {
+        // best-effort migration only
+    }
 }

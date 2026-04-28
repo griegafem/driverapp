@@ -1,7 +1,25 @@
-.env
-**/.env
-node_modules/
-dist/
-build/
+## OS / Editor
 .DS_Store
+.idea/
+.vscode/
+
+## .NET build outputs
+**/bin/
+**/obj/
+*.user
+*.suo
+*.cache
+*.pdb
+
+## Logs
 *.log
+
+## Local runtime data (do not commit)
+data/Photo/
+data/*.db
+data/*.db-*
+data/sessionstorage
+data/*.xlsx
+
+## Docker / compose local overrides
+docker-compose.override.yml
