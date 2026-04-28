@@ -10,11 +10,17 @@ public sealed class CarDb
         _dbPath = dbPath;
     }
 
+    public string DbPath => _dbPath;
+
     private string ConnString => new SqliteConnectionStringBuilder
     {
         DataSource = _dbPath,
         ForeignKeys = true,
         Mode = SqliteOpenMode.ReadWriteCreate,
+        // Important: if the DB file is replaced on disk (e.g. import tool),
+        // connection pooling may keep an open handle to the old inode and serve stale data.
+        // Disabling pooling ensures the process always reads the current file contents.
+        Pooling = false,
         Cache = SqliteCacheMode.Shared
     }.ToString();
 

@@ -1,9 +1,9 @@
 // Cache-bust ESM modules on deploys (Safari/iOS is especially aggressive here).
-const __v = "20260424_19";
-import { endpoint, postRequest } from "./js/api.js?v=20260424_19";
-import { get } from "./js/dom.js?v=20260424_19";
-import { initAuth } from "./js/auth.js?v=20260424_19";
-import { initCarSelector } from "./js/carSelector.js?v=20260424_19";
+const __v = "20260428_1";
+import { endpoint, postRequest } from "./js/api.js?v=20260428_1";
+import { get } from "./js/dom.js?v=20260428_1";
+import { initAuth } from "./js/auth.js?v=20260428_1";
+import { initCarSelector } from "./js/carSelector.js?v=20260428_1";
 
 // Always keep Help navigation working, even if legacy code below throws.
 // No internal links inside the button: just a hard navigation to /help.
@@ -970,7 +970,6 @@ function initCarsAdminUi(){
 	const inNumber = document.getElementById("carNumber");
 	const inBrand = document.getElementById("carBrand");
 	const inModel = document.getElementById("carModel");
-	const inColor = document.getElementById("carColor");
 	const inVin = document.getElementById("carVin");
 	const inYear = document.getElementById("carYear");
 	const inDepartment = document.getElementById("carDepartment");
@@ -1010,7 +1009,6 @@ function initCarsAdminUi(){
 		inNumber && (inNumber.value = c?.number || "");
 		inBrand && (inBrand.value = c?.brand || "");
 		inModel && (inModel.value = c?.model || "");
-		inColor && (inColor.value = c?.color || "");
 		inVin && (inVin.value = c?.vin || "");
 		inYear && (inYear.value = c?.year || "");
 		inDepartment && (inDepartment.value = c?.department || "");
@@ -1025,7 +1023,6 @@ function initCarsAdminUi(){
 				<td class="mono" style="padding:8px; border-top:1px solid rgba(226,232,240,0.8); font-size:12px; color:#64748b;">${c.id ?? ""}</td>
 				<td class="mono" style="padding:8px; border-top:1px solid rgba(226,232,240,0.8); font-size:13px;">${c.number || ""}</td>
 				<td style="padding:8px; border-top:1px solid rgba(226,232,240,0.8); font-size:13px;">${c.brand || ""}</td>
-				<td style="padding:8px; border-top:1px solid rgba(226,232,240,0.8); font-size:13px;">${c.color || ""}</td>
 				<td class="mono" style="padding:8px; border-top:1px solid rgba(226,232,240,0.8); font-size:12px;">${c.vin || ""}</td>
 				<td style="padding:6px; border-top:1px solid rgba(226,232,240,0.8); white-space:nowrap;">
 					<div class="usersActions">
@@ -1124,7 +1121,6 @@ function initCarsAdminUi(){
 			number: (inNumber?.value || "").trim(),
 			brand: (inBrand?.value || "").trim(),
 			model: (inModel?.value || "").trim(),
-			color: (inColor?.value || "").trim(),
 			vin: (inVin?.value || "").trim(),
 			year: (inYear?.value || "").trim(),
 			department: (inDepartment?.value || "").trim(),
