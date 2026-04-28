@@ -1,0 +1,23 @@
+**/.git
+**/.vs
+**/.idea
+**/.vscode
+**/bin
+**/obj
+**/packages
+**/node_modules
+**/*.user
+**/*.suo
+**/*.pdb
+**/*.cache
+
+# runtime data (mounted as volume in docker-compose)
+data/
+cache/
+pages/
+Photo/
+random_data.json
+sessionstorage
+tables.zip
+ziptmp/
+
