@@ -1,4 +1,5 @@
 using Microsoft.Data.Sqlite;
+using Newtonsoft.Json;
 
 public sealed class CarDb
 {
@@ -64,6 +65,24 @@ CREATE TABLE IF NOT EXISTS cars (
                 Vin = ""
             });
         }
+    }
+
+    public void SeedFromJsonFile(string path)
+    {
+        try
+        {
+            if (string.IsNullOrWhiteSpace(path) || !File.Exists(path)) return;
+            var json = File.ReadAllText(path);
+            var list = JsonConvert.DeserializeObject<List<CarRecord>>(json);
+            if (list == null || list.Count == 0) return;
+
+            foreach (var c in list)
+            {
+                if (string.IsNullOrWhiteSpace(c?.Number)) continue;
+                Upsert(c);
+            }
+        }
+        catch { }
     }
 
     public int Count()

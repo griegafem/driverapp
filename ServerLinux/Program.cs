@@ -48,9 +48,11 @@ driverApp.SetRandomTable(Path.Combine(dataRoot, "random.xlsx"));
 var userDb = new UserDb(Path.Combine(dataRoot, "users.db"));
 userDb.EnsureCreatedAndSeed();
 var sessionStore = new SessionStore(Path.Combine(dataRoot, "sessionstorage"));
+userDb.SeedFromJsonFile(Path.Combine(dataRoot, "seed", "users.json"));
 
 var carDb = new CarDb(Path.Combine(dataRoot, "cars.db"));
 carDb.EnsureCreatedAndSeed();
+carDb.SeedFromJsonFile(Path.Combine(dataRoot, "seed", "cars.json"));
 TryMigrateCarsFromExcelAndDelete(dataRoot, carDb);
 
 // Health

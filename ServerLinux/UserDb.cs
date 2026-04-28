@@ -1,4 +1,5 @@
 using Microsoft.Data.Sqlite;
+using Newtonsoft.Json;
 
 public sealed class UserDb
 {
@@ -54,6 +55,25 @@ CREATE TABLE IF NOT EXISTS users (
                 Phone = ""
             });
         }
+    }
+
+    public void SeedFromJsonFile(string path)
+    {
+        try
+        {
+            if (string.IsNullOrWhiteSpace(path) || !File.Exists(path)) return;
+            var json = File.ReadAllText(path);
+            var list = JsonConvert.DeserializeObject<List<UserRecord>>(json);
+            if (list == null || list.Count == 0) return;
+
+            foreach (var u in list)
+            {
+                if (string.IsNullOrWhiteSpace(u?.Login) || string.IsNullOrWhiteSpace(u?.Password)) continue;
+                u.Role = NormalizeRole(u.Role);
+                Upsert(u);
+            }
+        }
+        catch { }
     }
 
     public sealed class UserRecord
