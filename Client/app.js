@@ -1,13 +1,11 @@
 // Use same-origin API endpoint so deployments behind different domains keep working.
 var endpoint = window.location.origin;
 
-const tg = window.Telegram.WebApp;
+const tg = window.Telegram?.WebApp;
+try { tg?.expand?.(); } catch (e) {}
 
-tg.expand();
-
-var user = tg.initDataUnsafe.user;
-
-user = null;
+// Telegram user can be absent when opened in a normal browser.
+var user = tg?.initDataUnsafe?.user ?? null;
 
 //const canvas = document.getElementById("canvas");
 const snap = document.getElementById("snap");
@@ -212,7 +210,14 @@ date.innerText = "Дата: " + new Date().toLocaleDateString('ru-RU', {
 
 let cars = [];
 
-fetch(endpoint + "/api/cars").then(r => r.json()).then(data => {cars = data;});
+fetch(endpoint + "/api/cars")
+	.then(async (r) => {
+		const text = await r.text();
+		try { return JSON.parse(text || "[]"); }
+		catch(e) { console.error("cars parse error", e, text); return []; }
+	})
+	.then(data => { cars = Array.isArray(data) ? data : []; })
+	.catch(err => { console.error("cars load error", err); cars = []; });
 
 pretrip_button.onclick = () => {
 	nextPage("pretrip");
