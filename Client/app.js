@@ -1,9 +1,9 @@
 // Cache-bust ESM modules on deploys (Safari/iOS is especially aggressive here).
-const __v = "20260504_1";
-import { endpoint, postRequest } from "./js/api.js?v=20260504_1";
-import { get } from "./js/dom.js?v=20260504_1";
-import { initAuth } from "./js/auth.js?v=20260504_1";
-import { initCarSelector } from "./js/carSelector.js?v=20260504_1";
+const __v = "20260504_2";
+import { endpoint, postRequest } from "./js/api.js?v=20260504_2";
+import { get } from "./js/dom.js?v=20260504_2";
+import { initAuth } from "./js/auth.js?v=20260504_2";
+import { initCarSelector } from "./js/carSelector.js?v=20260504_2";
 
 // Always keep Help navigation working, even if legacy code below throws.
 // No internal links inside the button: just a hard navigation to /help.
@@ -540,25 +540,23 @@ function addPhotoBlock(parent, info, action){
 	clone.querySelector('#photoBlockTemplate_upload_button').onclick = () => {
 		photoInput.click();
 
-		photoAction = (url) => { 
+		photoAction = (url) => {
 			if (!canvas) return;
 			const ctx = canvas.getContext("2d");
-	
+
 			const img = new Image();
 			img.src = url;
-	
+
 			img.onload = () => {
 				canvas.width = img.width;
 				canvas.height = img.height;
-	
 				ctx.drawImage(img, 0, 0);
+				URL.revokeObjectURL(url);
 
 				const photo = canvas.toDataURL("image/jpeg", 0.8);
-		
 				if(action != null) action(photo);
 				setThumb(photo);
 
-				// Ensure capture UI is not visible after upload.
 				capture.classList.add("hidden");
 				video?.classList?.add?.("hidden");
 				canvas?.classList?.add?.("hidden");
@@ -566,6 +564,7 @@ function addPhotoBlock(parent, info, action){
 				retry?.classList?.add?.("hidden");
 				stopStream();
 			};
+			img.onerror = () => URL.revokeObjectURL(url);
 		};
 	}
 
@@ -627,47 +626,46 @@ damagedwheelPhoto_button.onclick = () => {
 	var canvas = canvas_damagedwheel;
 	var retry = retry_damagedwheel;
 
+	let dmgStream = null;
+	const stopDmgStream = () => {
+		try { dmgStream?.getTracks?.().forEach(t => t.stop()); } catch {}
+		dmgStream = null;
+	};
+
 	try {
-        navigator.mediaDevices.getUserMedia({video: { facingMode: "environment" }}).then((currentStream) =>{
+		navigator.mediaDevices.getUserMedia({video: { facingMode: "environment" }}).then((currentStream) => {
+			dmgStream = currentStream;
 			video.srcObject = currentStream;
 			video.play();
-        });
-      } catch (err) {
-        console.error("Camera access error:", err);
-      }
+		});
+	} catch (err) {
+		console.error("Camera access error:", err);
+	}
 
-	  photoChoice.classList.add('hidden')
-	  video.classList.remove('hidden');
+	photoChoice.classList.add('hidden');
+	video.classList.remove('hidden');
+	snap.classList.remove('hidden');
 
-	  snap.classList.remove('hidden');
-
-	  retry.onclick = () => {
+	retry.onclick = () => {
 		video.classList.remove("hidden");
 		canvas.classList.add("hidden");
 		snap.classList.remove("hidden");
 		retry.classList.add("hidden");
-	  }
+	};
 
-	  snap.onclick = () => {
-
+	snap.onclick = () => {
 		canvas.width = video.videoWidth;
 		canvas.height = video.videoHeight;
-	  
 		const ctx = canvas.getContext("2d");
-	  
 		ctx.drawImage(video, 0, 0);
-	  
 		const photo = canvas.toDataURL("image/jpeg", 0.8);
-
 		checkUpPreData.wheel_damaged_photo = photo;
-	  
-		//console.log(photo);
-
+		stopDmgStream();
 		video.classList.add("hidden");
 		canvas.classList.remove("hidden");
 		snap.classList.add("hidden");
 		retry.classList.remove("hidden");
-	  };
+	};
 }
 
 wheelokPhoto_button.onclick = () => {
@@ -677,47 +675,46 @@ wheelokPhoto_button.onclick = () => {
 	var canvas = canvas_wheelok;
 	var retry = retry_wheelok;
 
+	let wokStream = null;
+	const stopWokStream = () => {
+		try { wokStream?.getTracks?.().forEach(t => t.stop()); } catch {}
+		wokStream = null;
+	};
+
 	try {
-        navigator.mediaDevices.getUserMedia({video: { facingMode: "environment" }}).then((currentStream) =>{
+		navigator.mediaDevices.getUserMedia({video: { facingMode: "environment" }}).then((currentStream) => {
+			wokStream = currentStream;
 			video.srcObject = currentStream;
 			video.play();
-        });
-      } catch (err) {
-        console.error("Camera access error:", err);
-      }
+		});
+	} catch (err) {
+		console.error("Camera access error:", err);
+	}
 
-	  photoChoice.classList.add('hidden')
-	  video.classList.remove('hidden');
+	photoChoice.classList.add('hidden');
+	video.classList.remove('hidden');
+	snap.classList.remove('hidden');
 
-	  snap.classList.remove('hidden');
-
-	  retry.onclick = () => {
+	retry.onclick = () => {
 		video.classList.remove("hidden");
 		canvas.classList.add("hidden");
 		snap.classList.remove("hidden");
 		retry.classList.add("hidden");
-	  }
+	};
 
-	  snap.onclick = () => {
-
+	snap.onclick = () => {
 		canvas.width = video.videoWidth;
 		canvas.height = video.videoHeight;
-	  
 		const ctx = canvas.getContext("2d");
-	  
 		ctx.drawImage(video, 0, 0);
-	  
 		const photo = canvas.toDataURL("image/jpeg", 0.8);
-	  
 		checkUpPreData.random_wheel_photo = photo;
-
-		//console.log(photo);
-
+		stopWokStream();
 		video.classList.add("hidden");
 		canvas.classList.remove("hidden");
 		snap.classList.add("hidden");
 		retry.classList.remove("hidden");
-	  };
+	};
 }
 
 mileageInput.addEventListener('input', (event) => {
@@ -757,11 +754,13 @@ function selectCar(car) {
 		get('number').innerText = (car.brand || "") + " " + (car.model || "") + " " + car.number;
 	} else {
 		postRequest(endpoint + "/api/get-car", JSON.stringify({"number": car.number})).then(response => {
-			if(response == "CAR_NOT_FOUND"){
+			if (response?.status === "ok" && (response.brand || response.model)) {
+				get('number').innerText = (response.brand || "") + " " + (response.model || "") + " " + car.number;
+			} else {
 				get('number').innerText = car.number || "";
-			}else{
-				get('number').innerText = response.brand +' ' + response.model + ' ' + car.number;
 			}
+		}).catch(() => {
+			get('number').innerText = car.number || "";
 		});
 	}
 }
@@ -1202,13 +1201,21 @@ getLocation_button.onclick = () => {
 	getLocation_button.classList.add('inactive');
 	getLocation_button.innerText = "Получение координат...";
 
-	navigator.geolocation.getCurrentPosition(pos => {
-		state.lat = pos.coords.latitude;
-		state.lng = pos.coords.longitude;
-		document.getElementById("coords").innerText = state.lat + ", " + state.lng;
-		getLocation_button.innerText = "Координаты получены";
-		checkUpPreData.geo = state.lat + " " + state.lng;
-	});
+	navigator.geolocation.getCurrentPosition(
+		(pos) => {
+			state.lat = pos.coords.latitude;
+			state.lng = pos.coords.longitude;
+			document.getElementById("coords").innerText = state.lat + ", " + state.lng;
+			getLocation_button.innerText = "Координаты получены";
+			getLocation_button.classList.remove('inactive');
+			checkUpPreData.geo = state.lat + " " + state.lng;
+		},
+		() => {
+			getLocation_button.innerText = "Не удалось получить координаты";
+			getLocation_button.classList.remove('inactive');
+		},
+		{ timeout: 15000, maximumAge: 60000 }
+	);
 };
 
 function send() {
@@ -1221,17 +1228,7 @@ const msg = document.getElementById("msg");
 
 const camInput = document.getElementById("cameraInput");
 
-camInput.onchange = () => {
-  const file = camInput.files[0];
-
-  //console.log("Фото:", file);
-
-  const url = URL.createObjectURL(file);
-  const img = document.createElement("img");
-  img.src = url;
-  img.style.width = "100%";
-  document.body.appendChild(img);
-};
+camInput.onchange = () => {};
 
 photoInput.onchange = () => {
 	const file = photoInput.files[0];
@@ -1354,41 +1351,13 @@ if (wheelokSwitch) {
 }
 
 wheelokUpload_button.onclick = () => {
-photoInput.click();
-
-photoAction = (url) => { 
-	photoChoice_wheelok.classList.add('hidden');
-
-	const canvas = document.getElementById("canvas_wheelok");
-	const ctx = canvas.getContext("2d");
-
-	canvas.classList.remove('hidden');
-
-	const img = new Image();
-	img.src = url;
-
-	img.onload = () => {
-		canvas.width = img.width;
-		canvas.height = img.height;
-
-		ctx.drawImage(img, 0, 0);
-
-		const photo = canvas.toDataURL("image/jpeg", 0.8);
-	  
-		checkUpPreData.random_wheel_photo = photo;
-	};
-};
-}
-
-damagedwheelUpload_button.onclick = () => {
 	photoInput.click();
 
-	photoAction = (url) => { 
-		photoChoice_damagedwheel.classList.add('hidden');
+	photoAction = (url) => {
+		photoChoice_wheelok.classList.add('hidden');
 
-		const canvas = document.getElementById("canvas_damagedwheel");
+		const canvas = document.getElementById("canvas_wheelok");
 		const ctx = canvas.getContext("2d");
-
 		canvas.classList.remove('hidden');
 
 		const img = new Image();
@@ -1397,13 +1366,35 @@ damagedwheelUpload_button.onclick = () => {
 		img.onload = () => {
 			canvas.width = img.width;
 			canvas.height = img.height;
-
 			ctx.drawImage(img, 0, 0);
-
-			const photo = canvas.toDataURL("image/jpeg", 0.8);
-	  
-			checkUpPreData.wheel_damaged_photo = photo;
+			URL.revokeObjectURL(url);
+			checkUpPreData.random_wheel_photo = canvas.toDataURL("image/jpeg", 0.8);
 		};
+		img.onerror = () => URL.revokeObjectURL(url);
+	};
+}
+
+damagedwheelUpload_button.onclick = () => {
+	photoInput.click();
+
+	photoAction = (url) => {
+		photoChoice_damagedwheel.classList.add('hidden');
+
+		const canvas = document.getElementById("canvas_damagedwheel");
+		const ctx = canvas.getContext("2d");
+		canvas.classList.remove('hidden');
+
+		const img = new Image();
+		img.src = url;
+
+		img.onload = () => {
+			canvas.width = img.width;
+			canvas.height = img.height;
+			ctx.drawImage(img, 0, 0);
+			URL.revokeObjectURL(url);
+			checkUpPreData.wheel_damaged_photo = canvas.toDataURL("image/jpeg", 0.8);
+		};
+		img.onerror = () => URL.revokeObjectURL(url);
 	};
 }
 
@@ -1424,16 +1415,25 @@ get('impossibleSwitch').onchange = () => {
 }
 
 get('getLocation_2').onclick = () => {
-	get('getLocation_2').classList.add('inactive');
-	get('getLocation_2').innerText = "Получение координат...";
+	const btn2 = get('getLocation_2');
+	btn2.classList.add('inactive');
+	btn2.innerText = "Получение координат...";
 
-	navigator.geolocation.getCurrentPosition(pos => {
-		state.lat = pos.coords.latitude;
-		state.lng = pos.coords.longitude;
-		get('coords_2').innerText = state.lat + ", " + state.lng;
-		get('getLocation_2').innerText = "Координаты получены";
-		checkUpPostData.geo = state.lat + " " + state.lng;
-	});
+	navigator.geolocation.getCurrentPosition(
+		(pos) => {
+			state.lat = pos.coords.latitude;
+			state.lng = pos.coords.longitude;
+			get('coords_2').innerText = state.lat + ", " + state.lng;
+			btn2.innerText = "Координаты получены";
+			btn2.classList.remove('inactive');
+			checkUpPostData.geo = state.lat + " " + state.lng;
+		},
+		() => {
+			btn2.innerText = "Не удалось получить координаты";
+			btn2.classList.remove('inactive');
+		},
+		{ timeout: 15000, maximumAge: 60000 }
+	);
 };
 
 get('fio').addEventListener("input", () => { 
@@ -1573,6 +1573,7 @@ get('sendPreCheckUp').onclick = async () => {
 	checkUpPreData.brakefluid_level = document.querySelector('input[name="brakefluid_switch"]:checked')?.value;
 	checkUpPreData.wifi = document.querySelector('input[name="wifi_switch"]:checked')?.value;
 	checkUpPreData.vpn = document.querySelector('input[name="vpn_switch"]:checked')?.value;
+	checkUpPreData.date = new Date().toISOString();
 
 	const data = JSON.stringify({ data: checkUpPreData, session: session });
 	const btn = get('sendPreCheckUp');
@@ -1614,6 +1615,7 @@ get('sendPostCheckUp').onclick = async () => {
 	checkUpPostData.location = get('location_post').value;
 	checkUpPostData.additional_info = get('additionalinfo_post').value;
 	checkUpPostData.critical_info = get('criticalinfo_post').value;
+	checkUpPostData.date = new Date().toISOString();
 
 	const data = JSON.stringify({ data: checkUpPostData, session: session });
 

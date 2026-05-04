@@ -45,6 +45,9 @@ driverApp.SetCheckUpTable(Path.Combine(dataRoot, "checkups.xlsx"));
 driverApp.SetPostCheckUpTable(Path.Combine(dataRoot, "post_checkups.xlsx"));
 driverApp.SetRandomTable(Path.Combine(dataRoot, "random.xlsx"));
 
+// ClosedXML workbooks are not thread-safe: guard all read/write operations with this lock.
+var xlLock = new SemaphoreSlim(1, 1);
+
 var userDb = new UserDb(Path.Combine(dataRoot, "users.db"));
 userDb.EnsureCreatedAndSeed();
 var sessionStore = new SessionStore(Path.Combine(dataRoot, "sessionstorage"));
@@ -54,6 +57,14 @@ var carDb = new CarDb(Path.Combine(dataRoot, "cars.db"));
 carDb.EnsureCreatedAndSeed();
 carDb.SeedFromJsonFile(Path.Combine(dataRoot, "seed", "cars.json"));
 TryMigrateCarsFromExcelAndDelete(dataRoot, carDb);
+
+// Return JSON error instead of empty 500 on unhandled exceptions.
+app.UseExceptionHandler(errApp => errApp.Run(async ctx =>
+{
+    ctx.Response.StatusCode = 500;
+    ctx.Response.ContentType = "application/json; charset=utf-8";
+    await ctx.Response.WriteAsync(JsonConvert.SerializeObject(new { status = "error", error = "SERVER_ERROR" }));
+}));
 
 // Health
 app.MapGet("/test", () => Results.Text("OK"));
@@ -390,12 +401,14 @@ app.MapPost("/api/get-car", async (HttpRequest request) =>
     var body = await ReadBodyAsync(request);
     var obj = JObject.Parse(body);
     var number = (string?)obj["number"];
-    if (string.IsNullOrWhiteSpace(number)) return Results.Text("CAR_NOT_FOUND");
+    if (string.IsNullOrWhiteSpace(number))
+        return Results.Text(JsonConvert.SerializeObject(new { status = "error", error = "CAR_NOT_FOUND" }), "application/json; charset=utf-8");
 
     var car = carDb.GetByNumber(number);
-    if (car == null) return Results.Text("CAR_NOT_FOUND");
+    if (car == null)
+        return Results.Text(JsonConvert.SerializeObject(new { status = "error", error = "CAR_NOT_FOUND" }), "application/json; charset=utf-8");
 
-    var result = JsonConvert.SerializeObject(new { brand = car.Brand, model = car.Model });
+    var result = JsonConvert.SerializeObject(new { status = "ok", brand = car.Brand, model = car.Model });
     return Results.Text(result, "application/json; charset=utf-8");
 });
 
@@ -478,10 +491,13 @@ app.MapPost("/api/authorize", async (HttpRequest request) =>
     return Results.Text(payload, "application/json; charset=utf-8");
 });
 
-app.MapGet("/api/get-tables", (HttpRequest request) =>
+app.MapGet("/api/get-tables", async (HttpRequest request) =>
 {
     var accessKey = request.Query["l"].ToString();
-    var zip = driverApp.GetTables(accessKey);
+    await xlLock.WaitAsync();
+    byte[]? zip;
+    try { zip = driverApp.GetTables(accessKey); }
+    finally { xlLock.Release(); }
     if (zip == null) return Results.Text("Ошибка доступа", "text/plain; charset=utf-8");
 
     return Results.File(zip, "application/zip", fileDownloadName: "checkups.zip");
@@ -533,7 +549,7 @@ app.MapPost("/api/pre-checkup", async (HttpRequest request) =>
     var row = new ExcelProvider.Row();
 
     row.Add("Дата записи", (string?)obj.date ?? "");
-    row.Add("Время завершения отчёта", (string?)obj.date_2 ?? (string?)obj.date ?? "");
+    row.Add("Время завершения отчёта", DateTime.Now.ToString());
     row.Add("Фамилия пользователя", user.Surname);
     row.Add("Имя пользователя", user.Name);
     row.Add("Тип отчёта", (string?)obj.type ?? "");
@@ -572,7 +588,9 @@ app.MapPost("/api/pre-checkup", async (HttpRequest request) =>
     TryAddPhoto(row, "Фото открытая задняя левая дверь", (string?)obj.photo_ibl, car, "Фото открытая задняя левая дверь", dataRoot);
     TryAddPhoto(row, "Фото дня", (string?)obj.photo_of_day, car, "Фото дня", dataRoot);
 
-    driverApp.AddCheckUp(row);
+    await xlLock.WaitAsync();
+    try { driverApp.AddCheckUp(row); }
+    finally { xlLock.Release(); }
 
     return Results.Text(JsonConvert.SerializeObject(new { status = "ok" }), "application/json; charset=utf-8");
 });
@@ -647,7 +665,9 @@ app.MapPost("/api/post-checkup", async (HttpRequest request) =>
     TryAddPhoto(row, "Фото дня", (string?)obj.photo_of_day, car, "По приезду Фото дня", dataRoot);
     TryAddPhoto(row, "Фото повреждения", (string?)obj.damage_photo, car, "По приезду Повреждение", dataRoot);
 
-    driverApp.AddPostCheckUp(row);
+    await xlLock.WaitAsync();
+    try { driverApp.AddPostCheckUp(row); }
+    finally { xlLock.Release(); }
 
     return Results.Text(JsonConvert.SerializeObject(new { status = "ok" }), "application/json; charset=utf-8");
 });
@@ -667,15 +687,21 @@ app.MapGet("/api/get-photo", (HttpRequest request) =>
     return Results.File(fullPath, "image/jpeg");
 });
 
-app.MapGet("/driver-app/pre-checkups", () =>
+app.MapGet("/driver-app/pre-checkups", async () =>
 {
-    var checkUps = driverApp.GetCheckups();
+    await xlLock.WaitAsync();
+    ExcelProvider.Row[] checkUps;
+    try { checkUps = driverApp.GetCheckups(); }
+    finally { xlLock.Release(); }
     return Results.Text(RenderTableHtml("Осмотры", checkUps), "text/html; charset=utf-8");
 });
 
-app.MapGet("/driver-app/post-checkups", () =>
+app.MapGet("/driver-app/post-checkups", async () =>
 {
-    var checkUps = driverApp.GetPostCheckups();
+    await xlLock.WaitAsync();
+    ExcelProvider.Row[] checkUps;
+    try { checkUps = driverApp.GetPostCheckups(); }
+    finally { xlLock.Release(); }
     return Results.Text(RenderTableHtml("Осмотры", checkUps), "text/html; charset=utf-8");
 });
 
