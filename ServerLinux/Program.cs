@@ -470,6 +470,7 @@ app.MapPost("/api/authorize", async (HttpRequest request) =>
         surname = user.Surname,
         role = (user.Role ?? "").ToLowerInvariant(),
         access_key,
+        session,
         random_wheel = "",
         photoday = ""
     });
@@ -510,7 +511,8 @@ app.MapPost("/api/pre-checkup", async (HttpRequest request) =>
     var session = (string?)root.session;
     var login = sessionStore.GetLogin(session);
     var user = string.IsNullOrWhiteSpace(login) ? null : userDb.GetByLogin(login);
-    if (user == null) return Results.Text("");
+    if (user == null)
+        return Results.Text(JsonConvert.SerializeObject(new { status = "error", error = "SESSION_INVALID" }), "application/json; charset=utf-8");
 
     dynamic obj = root.data;
 
@@ -582,7 +584,8 @@ app.MapPost("/api/post-checkup", async (HttpRequest request) =>
     var session = (string?)root.session;
     var login = sessionStore.GetLogin(session);
     var user = string.IsNullOrWhiteSpace(login) ? null : userDb.GetByLogin(login);
-    if (user == null) return Results.Text("");
+    if (user == null)
+        return Results.Text(JsonConvert.SerializeObject(new { status = "error", error = "SESSION_INVALID" }), "application/json; charset=utf-8");
 
     dynamic obj = root.data;
 

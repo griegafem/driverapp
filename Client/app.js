@@ -1,9 +1,9 @@
 // Cache-bust ESM modules on deploys (Safari/iOS is especially aggressive here).
-const __v = "20260428_2";
-import { endpoint, postRequest } from "./js/api.js?v=20260428_2";
-import { get } from "./js/dom.js?v=20260428_2";
-import { initAuth } from "./js/auth.js?v=20260428_2";
-import { initCarSelector } from "./js/carSelector.js?v=20260428_2";
+const __v = "20260504_1";
+import { endpoint, postRequest } from "./js/api.js?v=20260504_1";
+import { get } from "./js/dom.js?v=20260504_1";
+import { initAuth } from "./js/auth.js?v=20260504_1";
+import { initCarSelector } from "./js/carSelector.js?v=20260504_1";
 
 // Always keep Help navigation working, even if legacy code below throws.
 // No internal links inside the button: just a hard navigation to /help.
@@ -22,6 +22,46 @@ document.addEventListener(
 const tg = window.Telegram?.WebApp;
 
 try { tg?.expand?.(); } catch { }
+
+/** User-visible text for failed checkup submit (Telegram showAlert historically showed title-only if message was empty). */
+function showSubmitError(text) {
+	let body = String(text || "Не удалось отправить отчёт. Попробуйте снова.");
+	if (body.length > 350) body = body.slice(0, 347) + "…";
+	try {
+		if (tg && typeof tg.showAlert === "function") {
+			tg.showAlert(body);
+			return;
+		}
+	} catch { }
+	alert(body);
+}
+
+function formatSubmitFailure(err, response) {
+	if (response?.error === "SESSION_INVALID") {
+		return "Сессия истекла или недействительна. Выйдите из учётной записи и войдите снова.";
+	}
+	if (response?.status === "error" && response?.error) {
+		const code = String(response.error);
+		if (code === "NON_JSON_RESPONSE") {
+			return "Сервер вернул неожиданный ответ. Обновите страницу или обратитесь к администратору.";
+		}
+		return "Ошибка: " + code;
+	}
+	if (!err) return "Ошибка сети. Проверьте подключение к интернету.";
+	if (err.name === "AbortError") {
+		return "Превышено время ожидания ответа сервера. Проверьте связь и попробуйте снова.";
+	}
+	const p = err.payload;
+	if (p && typeof p === "object") {
+		if (p.error) return "Ошибка: " + String(p.error);
+		if (p.message) return String(p.message);
+	}
+	if (err.httpStatus) return "Ошибка сервера (" + err.httpStatus + "). Попробуйте позже или обновите страницу.";
+	return "Не удалось отправить отчёт. Попробуйте снова.";
+}
+
+let refreshUsersAdminList = () => {};
+let refreshCarsAdminList = () => {};
 
 function doLogout(){
   try { localStorage.removeItem("session"); } catch { }
@@ -172,6 +212,12 @@ initAuth({
 		if(currentRole === "admin") {
 			access_key = response.access_key;
 			get('reports_button').classList.remove('hidden');
+			try {
+				refreshUsersAdminList();
+				refreshCarsAdminList();
+			} catch (e) {
+				console.error("Admin lists refresh:", e);
+			}
 		}
 
 		// Keep legacy "session" global in sync for checkup submit endpoints.
@@ -187,7 +233,7 @@ initAuth({
 			endpoint,
 			get,
 			carsRequest: async (base) => {
-				const r = await fetch(base + "/api/cars", { credentials: "same-origin" });
+				const r = await fetch(base + "/api/cars", { credentials: "same-origin", cache: "no-store" });
 				return await r.json();
 			},
 			onCarsLoaded: () => {},
@@ -319,7 +365,6 @@ date.innerText = "Дата: " + new Date().toLocaleDateString('ru-RU', {
 
 pretrip_button.onclick = () => {
 	nextPage("pretrip");
-	addPhotoBlock(document.getElementById('photoChoice_mileage'), null, (photoData) => { checkUpPreData.photo_mileage = photoData; });
 }
 
 posttrip_button.onclick = () => {
@@ -331,6 +376,7 @@ get('posttripBack')?.addEventListener?.('click', () => {
 	nextPage("car");
 });
 
+addPhotoBlock(get('photoChoice_mileage'), null, (photoData) => { checkUpPreData.photo_mileage = photoData; });
 addPhotoBlock(get('photoBlock_panel'), null, (photoData) => { checkUpPostData.photo_mileage = photoData; });
 addPhotoBlock(get('damagePhoto'), null, (photoData) => { checkUpPostData.damage_photo = photoData; });
 
@@ -414,6 +460,15 @@ function addPhotoBlock(parent, info, action){
 		img.className = 'photoThumb__img';
 		img.src = photoData;
 		img.alt = '';
+		img.onerror = () => {
+			thumbs.innerHTML = '';
+			const err = document.createElement('div');
+			err.className = 'photoThumb';
+			err.style.color = '#b91c1c';
+			err.style.fontSize = '13px';
+			err.textContent = 'Не удалось показать превью';
+			thumbs.appendChild(err);
+		};
 
 		const btn = document.createElement('button');
 		btn.type = 'button';
@@ -727,7 +782,7 @@ function nextPage(name) {
 
 async function apiGetUsers(){
 	const s = localStorage.getItem("session") || "";
-	const r = await fetch(endpoint + "/api/users?session=" + encodeURIComponent(s), { credentials: "same-origin" });
+	const r = await fetch(endpoint + "/api/users?session=" + encodeURIComponent(s), { credentials: "same-origin", cache: "no-store" });
 	return await r.json();
 }
 
@@ -743,7 +798,7 @@ async function apiDeleteUser(id){
 
 async function apiGetCarsAdmin(){
 	const s = localStorage.getItem("session") || "";
-	const r = await fetch(endpoint + "/api/admin/cars?session=" + encodeURIComponent(s), { credentials: "same-origin" });
+	const r = await fetch(endpoint + "/api/admin/cars?session=" + encodeURIComponent(s), { credentials: "same-origin", cache: "no-store" });
 	return await r.json();
 }
 
@@ -946,7 +1001,7 @@ function initUsersAdminUi(){
 		await load();
 	};
 
-	load();
+	refreshUsersAdminList = load;
 }
 
 // Initialize admin users screen (safe if elements not present)
@@ -1136,7 +1191,7 @@ function initCarsAdminUi(){
 		await load();
 	};
 
-	load();
+	refreshCarsAdminList = load;
 }
 
 initCarsAdminUi();
@@ -1180,12 +1235,15 @@ camInput.onchange = () => {
 
 photoInput.onchange = () => {
 	const file = photoInput.files[0];
-  
-	//console.log("Фото:", file);
-  
+	if (!file) return;
+
 	const url = URL.createObjectURL(file);
 
-	photoAction(url);
+	try {
+		photoAction(url);
+	} finally {
+		try { photoInput.value = ""; } catch { }
+	}
 	// const img = document.createElement("img");
 	// img.src = url;
 	// img.style.width = "100%";
@@ -1511,79 +1569,81 @@ get('help_button').onclick = () => {
 	window.location.href = "/help";
 }
 
-get('sendPreCheckUp').onclick = () => {
+get('sendPreCheckUp').onclick = async () => {
 	checkUpPreData.brakefluid_level = document.querySelector('input[name="brakefluid_switch"]:checked')?.value;
 	checkUpPreData.wifi = document.querySelector('input[name="wifi_switch"]:checked')?.value;
 	checkUpPreData.vpn = document.querySelector('input[name="vpn_switch"]:checked')?.value;
 
-	var data = JSON.stringify({data: checkUpPreData, session: session});
+	const data = JSON.stringify({ data: checkUpPreData, session: session });
+	const btn = get('sendPreCheckUp');
+	const defaultLabel = "Завершить осмотр";
 
-	get('sendPreCheckUp').classList.add('inactive');
-	get('sendPreCheckUp').innerText = "Отправка...";
+	btn.classList.add('inactive');
+	btn.innerText = "Отправка...";
 
-	postRequest(endpoint + "/api/pre-checkup", data, () => {
-		get('sendPreCheckUp').classList.remove('inactive');
-		get('sendPreCheckUp').innerText = "Отправить ещё раз";
-
-		if (tg && tg.platform && tg.platform !== 'unknown') {
-			tg.showAlert("Ошибка");
-		} else {
-			alert('Ошибка');
+	try {
+		const response = await postRequest(endpoint + "/api/pre-checkup", data);
+		if (response?.status !== "ok") {
+			showSubmitError(formatSubmitFailure(null, response));
+			btn.innerText = defaultLabel;
+			return;
 		}
-	}).then(response => {
-		get('sendPreCheckUp').innerText = "Отчёт отправлен!";
-
+		btn.innerText = "Отчёт отправлен!";
 		if (tg && tg.platform && tg.platform !== 'unknown') {
-			tg.showAlert("Осмотр отправлен");
+			tg.showAlert("Осмотр успешно отправлен");
 			setTimeout(() => { tg.close(); }, 1500);
 		} else {
-			alert('Осмотр отправлен');
+			alert("Осмотр успешно отправлен");
 			setTimeout(() => { location.reload(); }, 1500);
 		}
-	});
+	} catch (err) {
+		showSubmitError(formatSubmitFailure(err, null));
+		btn.innerText = defaultLabel;
+	} finally {
+		btn.classList.remove('inactive');
+	}
 
 	console.log(checkUpPreData);
-}
+};
 
-get('sendPostCheckUp').onclick = () => {
-	var button = get('sendPostCheckUp');
-
-	checkUpPostData.mileage = get('mileage_post').value;
+get('sendPostCheckUp').onclick = async () => {
+	const button = get('sendPostCheckUp');
+	const defaultLabel = "Завершить осмотр";
 
 	checkUpPostData.mileage = get('mileage_post').value;
 	checkUpPostData.location = get('location_post').value;
-
 	checkUpPostData.additional_info = get('additionalinfo_post').value;
 	checkUpPostData.critical_info = get('criticalinfo_post').value;
 
-	var data = JSON.stringify({data: checkUpPostData, session: session});
+	const data = JSON.stringify({ data: checkUpPostData, session: session });
 
 	button.classList.add('inactive');
 	button.innerText = "Отправка...";
 
-	postRequest(endpoint + "/api/post-checkup", data, () => {
-		button.classList.remove('inactive');
-		button.innerText = "Отправить ещё раз";
-
-		if (tg && tg.platform && tg.platform !== 'unknown') {
-			tg.showAlert("Ошибка");
-		} else {
-			alert('Ошибка');
+	try {
+		const response = await postRequest(endpoint + "/api/post-checkup", data);
+		if (response?.status !== "ok") {
+			showSubmitError(formatSubmitFailure(null, response));
+			button.innerText = defaultLabel;
+			return;
 		}
-	}).then(response => {
 		button.innerText = "Отчёт отправлен!";
-
 		if (tg && tg.platform && tg.platform !== 'unknown') {
-			tg.showAlert("Осмотр отправлен");
+			tg.showAlert("Осмотр успешно отправлен");
 			setTimeout(() => { tg.close(); }, 1500);
 		} else {
-			alert('Осмотр отправлен');
+			alert("Осмотр успешно отправлен");
 			setTimeout(() => { location.reload(); }, 1500);
 		}
-	});
+	} catch (err) {
+		showSubmitError(formatSubmitFailure(err, null));
+		button.innerText = defaultLabel;
+	} finally {
+		button.classList.remove('inactive');
+	}
 
 	console.log(checkUpPostData);
-}
+};
 
 get('damageSwitchPost').onchange = () => {
 	get('damagePhoto').classList.toggle('hidden', !get('damageSwitchPost').checked)
