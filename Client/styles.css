@@ -1446,6 +1446,7 @@ body{
     transition: background-color 160ms ease, border-color 160ms ease, filter 160ms ease;
     display: inline-block;
     vertical-align: middle;
+    overflow: hidden;
   }
 
   .msToggle__input::before{

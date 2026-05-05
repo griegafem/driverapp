@@ -58,6 +58,9 @@ carDb.EnsureCreatedAndSeed();
 carDb.SeedFromJsonFile(Path.Combine(dataRoot, "seed", "cars.json"));
 TryMigrateCarsFromExcelAndDelete(dataRoot, carDb);
 
+var locationDb = new LocationDb(Path.Combine(dataRoot, "locations.db"));
+locationDb.EnsureCreatedAndSeed();
+
 // Return JSON error instead of empty 500 on unhandled exceptions.
 app.UseExceptionHandler(errApp => errApp.Run(async ctx =>
 {
@@ -307,6 +310,76 @@ app.MapPost("/api/admin/cars/delete", async (HttpRequest request) =>
     return Results.Text(JsonConvert.SerializeObject(new { status = "ok", deleted }), "application/json; charset=utf-8");
 });
 
+// Locations — public list for dropdown, admin CRUD
+app.MapGet("/api/locations", () =>
+{
+    try
+    {
+        var locs = locationDb.GetAll()
+            .Select(l => new { id = l.Id, name = l.Name, description = l.Description })
+            .ToArray();
+        return Results.Text(JsonConvert.SerializeObject(new { status = "ok", locations = locs }), "application/json; charset=utf-8");
+    }
+    catch (Exception ex)
+    {
+        return Results.Text(JsonConvert.SerializeObject(new { status = "error", error = ex.Message }), "application/json; charset=utf-8");
+    }
+});
+
+static IResult LocationsForbidden() =>
+    Results.Text(JsonConvert.SerializeObject(new { status = "error", error = "FORBIDDEN" }), "application/json; charset=utf-8");
+
+app.MapGet("/api/admin/locations", (HttpRequest request) =>
+{
+    var session = request.Query["session"].ToString();
+    var admin = RequireAdmin(userDb, sessionStore, session);
+    if (admin == null) return LocationsForbidden();
+
+    var locs = locationDb.GetAll()
+        .Select(l => new { id = l.Id, name = l.Name, description = l.Description })
+        .ToArray();
+    return Results.Text(JsonConvert.SerializeObject(new { status = "ok", locations = locs }), "application/json; charset=utf-8");
+});
+
+app.MapPost("/api/admin/locations/upsert", async (HttpRequest request) =>
+{
+    var body = await ReadBodyAsync(request);
+    dynamic root = JObject.Parse(body);
+    var session = (string?)root.session ?? "";
+    var admin = RequireAdmin(userDb, sessionStore, session);
+    if (admin == null) return LocationsForbidden();
+
+    dynamic loc = root.location;
+    var id = (long?)loc.id ?? 0;
+    var name = ((string?)loc.name ?? "").Trim();
+    if (string.IsNullOrWhiteSpace(name))
+        return Results.Text(JsonConvert.SerializeObject(new { status = "error", error = "BAD_DATA" }), "application/json; charset=utf-8");
+
+    locationDb.Upsert(new LocationDb.LocationRecord
+    {
+        Id = id,
+        Name = name,
+        Description = ((string?)loc.description ?? "").Trim(),
+    });
+    return Results.Text(JsonConvert.SerializeObject(new { status = "ok" }), "application/json; charset=utf-8");
+});
+
+app.MapPost("/api/admin/locations/delete", async (HttpRequest request) =>
+{
+    var body = await ReadBodyAsync(request);
+    dynamic root = JObject.Parse(body);
+    var session = (string?)root.session ?? "";
+    var admin = RequireAdmin(userDb, sessionStore, session);
+    if (admin == null) return LocationsForbidden();
+
+    var id = (long?)root.id;
+    if (id == null || id <= 0)
+        return Results.Text(JsonConvert.SerializeObject(new { status = "error", error = "BAD_ID" }), "application/json; charset=utf-8");
+
+    var deleted = locationDb.DeleteById(id.Value);
+    return Results.Text(JsonConvert.SerializeObject(new { status = "ok", deleted }), "application/json; charset=utf-8");
+});
+
 static bool IsAdminRole(string? role)
 {
     var r = (role ?? "").Trim().ToLowerInvariant();
@@ -552,8 +625,8 @@ app.MapPost("/api/pre-checkup", async (HttpRequest request) =>
     row.Add("Время завершения отчёта", DateTime.Now.ToString());
     row.Add("Фамилия пользователя", user.Surname);
     row.Add("Имя пользователя", user.Name);
-    row.Add("Тип отчёта", (string?)obj.type ?? "");
-    row.Add("ID автомобиля", (string?)obj.car_id ?? "");
+    row.Add("Тип отчёта", "CheckUp");
+    row.Add("ID автомобиля", carRec?.Id.ToString() ?? (string?)obj.car_id ?? "");
     row.Add("Марка автомобиля", car.brand);
     row.Add("Модель автомобиля", car.model);
     row.Add("Госномер", car.number);
@@ -564,7 +637,7 @@ app.MapPost("/api/pre-checkup", async (HttpRequest request) =>
     row.Add("Уровень моторного масла", (string?)obj.oil_level ?? "");
     row.Add("Уровень антифриза в норме", (string?)obj.antifreeze_ok ?? "");
     row.Add("Тормозная жидкость", (string?)obj.brakefluid_level ?? "");
-    row.Add("Омывающая жидкость", (string?)obj.glasswasher_ok ?? "");
+    row.Add("Омывающей жидкости больше 80%", (string?)obj.glasswasher_ok ?? "");
     row.Add("Пожелания по авто", (string?)obj.additional_info ?? "");
     row.Add("Критические замечания", (string?)obj.critical_info ?? "");
     row.Add("Уровень топлива", (string?)obj.fuel_level ?? "");
@@ -627,8 +700,8 @@ app.MapPost("/api/post-checkup", async (HttpRequest request) =>
     row.Add("Время завершения отчёта", DateTime.Now.ToString());
     row.Add("Фамилия пользователя", user.Surname);
     row.Add("Имя пользователя", user.Name);
-    row.Add("Тип отчёта", (string?)obj.type ?? "");
-    row.Add("ID автомобиля", (string?)obj.car_id ?? "");
+    row.Add("Тип отчёта", "CheckUp после приезда");
+    row.Add("ID автомобиля", carRec?.Id.ToString() ?? (string?)obj.car_id ?? "");
     row.Add("Марка автомобиля", car.brand);
     row.Add("Модель автомобиля", car.model);
     row.Add("Госномер", car.number);
@@ -639,7 +712,7 @@ app.MapPost("/api/post-checkup", async (HttpRequest request) =>
     row.Add("Уровень моторного масла", (string?)obj.oil_level ?? "");
     row.Add("Уровень антифриза в норме", (string?)obj.antifreeze_ok ?? "");
     row.Add("Тормозная жидкость", (string?)obj.brakefluid_level ?? "");
-    row.Add("Омывающая жидкость", (string?)obj.glasswasher_ok ?? "");
+    row.Add("Омывающей жидкости больше 80%", (string?)obj.glasswasher_ok ?? "");
     row.Add("Пожелания по авто", (string?)obj.additional_info ?? "");
     row.Add("Критические замечания", (string?)obj.critical_info ?? "");
     row.Add("Уровень топлива", (string?)obj.fuel_level ?? "");
@@ -805,11 +878,15 @@ img { max-width:100px; }
             var value = item.Value ?? "";
             if (value.StartsWith("/api/get-photo?id=", StringComparison.OrdinalIgnoreCase))
             {
-                sb.AppendLine($"<td><img src='{WebUtility.HtmlEncode(value)}' /></td>");
+                var enc = WebUtility.HtmlEncode(value);
+                sb.AppendLine($"<td><a href='{enc}' target='_blank' rel='noopener'><img src='{enc}' /></a></td>");
             }
             else
             {
-                sb.AppendLine($"<td>{WebUtility.HtmlEncode(value)}</td>");
+                var display = value.Equals("true", StringComparison.OrdinalIgnoreCase) ? "ДА"
+                            : value.Equals("false", StringComparison.OrdinalIgnoreCase) ? "НЕТ"
+                            : value;
+                sb.AppendLine($"<td>{WebUtility.HtmlEncode(display)}</td>");
             }
         }
         sb.AppendLine("</tr>");
@@ -839,7 +916,7 @@ static void EnsureLocalAssets(string repoRoot, string dataRoot)
         "Уровень моторного масла",
         "Уровень антифриза в норме",
         "Тормозная жидкость",
-        "Омывающая жидкость",
+        "Омывающей жидкости больше 80%",
         "Пожелания по авто",
         "Критические замечания",
         "Уровень топлива",

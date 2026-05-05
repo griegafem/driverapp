@@ -1,9 +1,10 @@
 // Cache-bust ESM modules on deploys (Safari/iOS is especially aggressive here).
-const __v = "20260504_2";
-import { endpoint, postRequest } from "./js/api.js?v=20260504_2";
-import { get } from "./js/dom.js?v=20260504_2";
-import { initAuth } from "./js/auth.js?v=20260504_2";
-import { initCarSelector } from "./js/carSelector.js?v=20260504_2";
+const __v = "20260504_3";
+import { endpoint, postRequest } from "./js/api.js?v=20260504_3";
+import { get } from "./js/dom.js?v=20260504_3";
+import { initAuth } from "./js/auth.js?v=20260504_3";
+import { initCarSelector } from "./js/carSelector.js?v=20260504_3";
+import { initLocationsAdminUi } from "./js/admin/locations.js?v=20260504_3";
 
 // Always keep Help navigation working, even if legacy code below throws.
 // No internal links inside the button: just a hard navigation to /help.
@@ -62,6 +63,8 @@ function formatSubmitFailure(err, response) {
 
 let refreshUsersAdminList = () => {};
 let refreshCarsAdminList = () => {};
+let refreshLocationsAdminList = () => {};
+let getLocationsForDropdown = async () => [];
 
 function doLogout(){
   try { localStorage.removeItem("session"); } catch { }
@@ -112,6 +115,7 @@ document.getElementById("sidebarLogout")?.addEventListener?.("click", () => { cl
 document.getElementById("sidebarGoUsers")?.addEventListener?.("click", () => { closeSidebar(); nextPage("users"); });
 document.getElementById("sidebarGoReports")?.addEventListener?.("click", () => { closeSidebar(); nextPage("reports"); });
 document.getElementById("sidebarGoCars")?.addEventListener?.("click", () => { closeSidebar(); nextPage("cars"); });
+document.getElementById("sidebarGoLocations")?.addEventListener?.("click", () => { closeSidebar(); nextPage("locations"); });
 
 // Legacy code below expects these globals to exist.
 let session = localStorage.getItem("session") || null;
@@ -208,6 +212,10 @@ initAuth({
 			"hidden",
 			currentRole !== "admin",
 		);
+		document.getElementById("sidebarGoLocations")?.classList?.toggle?.(
+			"hidden",
+			currentRole !== "admin",
+		);
 
 		if(currentRole === "admin") {
 			access_key = response.access_key;
@@ -215,6 +223,7 @@ initAuth({
 			try {
 				refreshUsersAdminList();
 				refreshCarsAdminList();
+				refreshLocationsAdminList();
 			} catch (e) {
 				console.error("Admin lists refresh:", e);
 			}
@@ -367,8 +376,23 @@ pretrip_button.onclick = () => {
 	nextPage("pretrip");
 }
 
-posttrip_button.onclick = () => {
+posttrip_button.onclick = async () => {
 	nextPage("posttrip");
+	try {
+		const sel = document.getElementById("location_post");
+		if (sel) {
+			const locs = await getLocationsForDropdown();
+			const current = sel.value;
+			sel.innerHTML = '<option value="">— Выберите локацию —</option>';
+			locs.forEach(l => {
+				const opt = document.createElement("option");
+				opt.value = l.name;
+				opt.textContent = l.name;
+				if (l.name === current) opt.selected = true;
+				sel.appendChild(opt);
+			});
+		}
+	} catch { }
 }
 
 // Posttrip "back" arrow (also useful for deep links)
@@ -1194,6 +1218,12 @@ function initCarsAdminUi(){
 }
 
 initCarsAdminUi();
+
+{
+	const locs = initLocationsAdminUi({ endpoint, postRequest, get, onNavigate: nextPage });
+	refreshLocationsAdminList = locs.refresh;
+	getLocationsForDropdown = locs.getLocations;
+}
 
 document.getElementById("toGeo").onclick = () => nextPage("geo");
 
