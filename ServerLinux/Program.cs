@@ -8,6 +8,14 @@ using System.Text;
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddRouting();
+builder.Services.AddResponseCompression(o =>
+{
+    o.EnableForHttps = true;
+    o.MimeTypes = Microsoft.AspNetCore.ResponseCompression.ResponseCompressionDefaults.MimeTypes.Concat(new[]
+    {
+        "application/javascript", "text/css", "text/html", "application/json", "image/svg+xml"
+    });
+});
 
 var app = builder.Build();
 
@@ -60,6 +68,8 @@ TryMigrateCarsFromExcelAndDelete(dataRoot, carDb);
 
 var locationDb = new LocationDb(Path.Combine(dataRoot, "locations.db"));
 locationDb.EnsureCreatedAndSeed();
+
+app.UseResponseCompression();
 
 // Return JSON error instead of empty 500 on unhandled exceptions.
 app.UseExceptionHandler(errApp => errApp.Run(async ctx =>
@@ -188,7 +198,21 @@ if (Directory.Exists(clientDir))
     app.UseStaticFiles(new StaticFileOptions
     {
         FileProvider = new PhysicalFileProvider(clientDir),
-        RequestPath = "/driver-app"
+        RequestPath = "/driver-app",
+        OnPrepareResponse = ctx =>
+        {
+            var qs = ctx.Context.Request.QueryString.Value ?? "";
+            if (qs.Contains("v="))
+            {
+                // Versioned asset — cache forever, immutable
+                ctx.Context.Response.Headers["Cache-Control"] = "public, max-age=31536000, immutable";
+            }
+            else
+            {
+                // Non-versioned — revalidate every time
+                ctx.Context.Response.Headers["Cache-Control"] = "public, max-age=0, must-revalidate";
+            }
+        }
     });
 
     app.MapGet("/driver-app/", () => Results.File(Path.Combine(clientDir, "index.html"), "text/html; charset=utf-8"));

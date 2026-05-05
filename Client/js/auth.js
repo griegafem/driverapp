@@ -17,6 +17,20 @@ export function initAuth({
     const session = localStorage.getItem("session");
     if (!session) { goLogin(); return; }
 
+    // Fresh login — auth data already available, skip round-trip to server
+    try {
+      const raw = sessionStorage.getItem("__authData");
+      if (raw) {
+        sessionStorage.removeItem("__authData");
+        const cached = JSON.parse(raw);
+        if (cached?.status === "ok" && cached?.session === session) {
+          hide(loading);
+          try { onAuthorized?.(cached); } catch (e) { console.error("Post-authorize UI error:", e); }
+          return;
+        }
+      }
+    } catch {}
+
     show(loading);
 
     postRequest(endpoint + "/api/authorize", JSON.stringify({ session }), goLogin)

@@ -152,6 +152,8 @@
           return;
         }
         if (d.session) localStorage.setItem('session', d.session);
+        // Pass auth data to the main app so it skips /api/authorize round-trip
+        try { sessionStorage.setItem('__authData', JSON.stringify(d)); } catch {}
         window.location.replace('/driver-app/');
       } catch (e) {
         err.textContent = 'Ошибка сети. Проверьте соединение.';
