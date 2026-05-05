@@ -12,9 +12,13 @@ export function initAuth({
   const tryAuthorize = () => {
     const session = localStorage.getItem("session");
     if (!session) {
-      show(loginForm);
+      // Login form is visible by default — nothing to do.
       return;
     }
+
+    // Has saved session: show loading overlay while we validate it.
+    hide(loginForm);
+    show(loading);
 
     postRequest(endpoint + "/api/authorize", JSON.stringify({ session }), () => {
       hide(loading);
@@ -26,7 +30,6 @@ export function initAuth({
           show(loginForm);
           return;
         }
-        // Ensure overlays are definitely gone on success.
         hide(loginForm);
         hide(loading);
         try {
@@ -36,7 +39,6 @@ export function initAuth({
         }
       })
       .catch(() => {
-        // postRequest already invoked onError callback; ensure loading isn't blocking UI.
         hide(loading);
         show(loginForm);
       });

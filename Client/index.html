@@ -5,6 +5,12 @@
 	<meta charset="UTF-8" name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 	<title>Осмотр авто</title>
 	<link rel="stylesheet" href="/driver-app/styles.css?v=20260504_3">
+	<link rel="modulepreload" href="/driver-app/app.js?v=20260504_3">
+	<link rel="modulepreload" href="/driver-app/js/api.js?v=20260504_3">
+	<link rel="modulepreload" href="/driver-app/js/dom.js?v=20260504_3">
+	<link rel="modulepreload" href="/driver-app/js/auth.js?v=20260504_3">
+	<link rel="modulepreload" href="/driver-app/js/carSelector.js?v=20260504_3">
+	<link rel="modulepreload" href="/driver-app/js/admin/locations.js?v=20260504_3">
 	<script>
 		// Optional override for API base URL (for prod/staging split).
 		// If empty/undefined, client will use current origin.
@@ -14,7 +20,7 @@
 
 <body class="noselect">
 	
-	<div id="loading" style="position: fixed; width: 100%; height: 100%; z-index: 150; left: 0; top: 0;">
+	<div id="loading" class="hidden" style="position: fixed; width: 100%; height: 100%; z-index: 150; left: 0; top: 0; background: #fff;">
 		<div id="loading_label" style="text-align: center; font-family: Roboto; font-size: 30px; margin-top: 250px;">Подключение...</div>
 		<div id="access_form" style="position: relative; top: 35%; text-align: center;" class="hidden">
 			<div id="access_attention" style="font-family: Roboto; color: crimson; font-size: 20px; margin-bottom: 25px;">У вас нет доступа к приложению</div>
@@ -24,7 +30,7 @@
 
 	</div>
 
-	<div id="login-form" style="position: fixed; width: 100%; height: 100%; z-index: 150; left: 0; top: 0;" class="hidden">
+	<div id="login-form" style="position: fixed; width: 100%; height: 100%; z-index: 150; left: 0; top: 0;">
 		<div id="login_brand" aria-hidden="true">
 			<img id="login_brand_logo" src="/driver-app/assets/logo.png" alt="Motorsharks" />
 		</div>
