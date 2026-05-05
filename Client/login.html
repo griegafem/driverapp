@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Motorsharks — Вход</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; }
+    html, body { height: 100%; margin: 0; padding: 0; }
+    body {
+      font-family: system-ui, -apple-system, Roboto, Arial, sans-serif;
+      background: #f1f5f9;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100%;
+    }
+    .wrap {
+      width: min(380px, 100%);
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 20px;
+    }
+    .brand img {
+      width: 90px;
+      height: 90px;
+      border-radius: 22px;
+      object-fit: contain;
+      box-shadow: 0 12px 32px rgba(15,23,42,0.14);
+      background: #fff;
+    }
+    .card {
+      width: 100%;
+      background: #fff;
+      border-radius: 20px;
+      box-shadow: 0 8px 28px rgba(15,23,42,0.10);
+      padding: 28px 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+    .card__title {
+      font-size: 20px;
+      font-weight: 700;
+      color: #0f172a;
+      text-align: center;
+      margin: 0 0 4px;
+    }
+    .error {
+      background: #fef2f2;
+      border: 1px solid #fecaca;
+      color: #b91c1c;
+      border-radius: 10px;
+      padding: 10px 14px;
+      font-size: 14px;
+      text-align: center;
+      display: none;
+    }
+    .error.visible { display: block; }
+    input {
+      width: 100%;
+      padding: 12px 16px;
+      border: 1.5px solid #e2e8f0;
+      border-radius: 12px;
+      font-size: 16px;
+      color: #0f172a;
+      background: #f8fafc;
+      outline: none;
+      transition: border-color 160ms;
+    }
+    input:focus { border-color: #2563eb; background: #fff; }
+    button {
+      width: 100%;
+      padding: 14px;
+      border: none;
+      border-radius: 12px;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      background: #2563eb;
+      color: #fff;
+      transition: filter 160ms, opacity 160ms;
+    }
+    button:hover { filter: brightness(0.95); }
+    button:disabled { opacity: 0.55; cursor: default; }
+    .hint {
+      font-size: 13px;
+      color: #94a3b8;
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="brand">
+      <img src="/driver-app/assets/logo.png" alt="Motorsharks" />
+    </div>
+    <div class="card">
+      <div class="card__title">Вход в Motorsharks</div>
+      <div id="err" class="error">Неверный логин или пароль</div>
+      <input id="login" placeholder="Логин" autocomplete="username" />
+      <input id="password" type="password" placeholder="Пароль" autocomplete="current-password" />
+      <button id="btn" disabled>Войти</button>
+      <div class="hint">Забыли пароль? Обратитесь к администратору</div>
+    </div>
+  </div>
+
+  <script>
+    // If already has a session — validate and redirect to app
+    (function () {
+      var s = localStorage.getItem('session');
+      if (!s) return;
+      fetch('/api/authorize', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ session: s })
+      }).then(function (r) { return r.json(); }).then(function (d) {
+        if (d && d.status === 'ok') window.location.replace('/driver-app/');
+      }).catch(function () {});
+    })();
+
+    var loginEl = document.getElementById('login');
+    var passEl = document.getElementById('password');
+    var btn = document.getElementById('btn');
+    var err = document.getElementById('err');
+
+    function update() {
+      btn.disabled = !loginEl.value.trim() || !passEl.value;
+    }
+    loginEl.addEventListener('input', update);
+    passEl.addEventListener('input', update);
+
+    async function doLogin() {
+      if (btn.disabled) return;
+      btn.disabled = true;
+      btn.textContent = 'Авторизация...';
+      err.classList.remove('visible');
+
+      try {
+        var r = await fetch('/api/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ login: loginEl.value.trim(), password: passEl.value })
+        });
+        var d = await r.json();
+        if (!d || d.status !== 'ok') {
+          err.classList.add('visible');
+          btn.textContent = 'Войти';
+          update();
+          return;
+        }
+        if (d.session) localStorage.setItem('session', d.session);
+        window.location.replace('/driver-app/');
+      } catch (e) {
+        err.textContent = 'Ошибка сети. Проверьте соединение.';
+        err.classList.add('visible');
+        btn.textContent = 'Войти';
+        update();
+      }
+    }
+
+    btn.addEventListener('click', doLogin);
+    passEl.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter') doLogin();
+    });
+  </script>
+</body>
+</html>

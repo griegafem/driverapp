@@ -15,6 +15,8 @@
 		// Optional override for API base URL (for prod/staging split).
 		// If empty/undefined, client will use current origin.
 		window.__API_BASE__ = window.__API_BASE__ || "";
+		// Fast redirect before any JS modules load — avoids blank screen on unauthenticated visits.
+		if (!localStorage.getItem('session')) window.location.replace('/login');
 	</script>
 </head>
 
@@ -30,20 +32,6 @@
 
 	</div>
 
-	<div id="login-form" style="position: fixed; width: 100%; height: 100%; z-index: 150; left: 0; top: 0;">
-		<div id="login_brand" aria-hidden="true">
-			<img id="login_brand_logo" src="/driver-app/assets/logo.png" alt="Motorsharks" />
-		</div>
-		<div id="login_card">
-			<div id="login_title">Вход в Motorsharks</div>
-			<div id="login_attention" class="hidden">Неверный логин/пароль</div>
-			<input id="login" class="def_input" placeholder="Логин">
-			<input id="password" type="password" class="def_input" placeholder="Пароль">
-			<button id="login_button" class="def_button inactive">Войти</button>
-			<div id="login_hint">Забыли пароль? Обратитесь к администратору системы</div>
-		</div>
-
-	</div>
 	
 	<div id="dashboardTop" class="hidden">
 		<button id="sidebarToggle" class="btn btn--ghost btn--sm" type="button" aria-label="Меню">☰</button>

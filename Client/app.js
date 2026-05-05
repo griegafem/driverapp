@@ -68,17 +68,7 @@ let getLocationsForDropdown = async () => [];
 
 function doLogout(){
   try { localStorage.removeItem("session"); } catch { }
-  session = null;
-  currentRole = null;
-
-  // Reset car selection + disable actions (business logic stays same)
-  try { clearSelectedCar(); } catch { }
-  try { nextPage("car"); } catch { }
-
-  // Show login overlay again
-  document.getElementById("login-form")?.classList?.remove?.("hidden");
-  document.getElementById("loading")?.classList?.add?.("hidden");
-  document.getElementById("dashboardTop")?.classList?.add?.("hidden");
+  window.location.replace("/login");
 }
 
 let currentRole = null;
@@ -1533,19 +1523,6 @@ get('impossibleSwitchPre').onchange = () => {
 	get('salonPhotosPre').classList.toggle('hidden', get('impossibleSwitchPre').checked)
 }
 
-get('login').addEventListener("input", () => {
-	var login = get('login').value;
-	var password = get('password').value;
-
-	get('login_button').classList.toggle('inactive', login.length == 0 || password.length == 0);
-});
-
-get('password').addEventListener("input", () => {
-	var login = get('login').value;
-	var password = get('password').value;
-
-	get('login_button').classList.toggle('inactive', login.length == 0 || password.length == 0);
-});
 
 get('download_button').onclick = () => {
 	var url = endpoint + "/api/get-tables?l=" + access_key;

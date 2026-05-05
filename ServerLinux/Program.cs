@@ -192,10 +192,12 @@ if (Directory.Exists(clientDir))
     });
 
     app.MapGet("/driver-app/", () => Results.File(Path.Combine(clientDir, "index.html"), "text/html; charset=utf-8"));
+    app.MapGet("/login", () => Results.File(Path.Combine(clientDir, "login.html"), "text/html; charset=utf-8"));
 }
 else
 {
     app.MapGet("/driver-app/", () => Results.Problem("Client folder not found"));
+    app.MapGet("/login", () => Results.Redirect("/driver-app/"));
 }
 
 // Minimal API used by client
