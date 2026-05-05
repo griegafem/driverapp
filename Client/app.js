@@ -107,6 +107,12 @@ document.getElementById("sidebarGoReports")?.addEventListener?.("click", () => {
 document.getElementById("sidebarGoCars")?.addEventListener?.("click", () => { closeSidebar(); nextPage("cars"); });
 document.getElementById("sidebarGoLocations")?.addEventListener?.("click", () => { closeSidebar(); nextPage("locations"); });
 
+// Start fetching cars immediately — in parallel with auth, not after it.
+// /api/cars is public so no session needed.
+const _carsPromise = fetch(endpoint + "/api/cars", { credentials: "same-origin", cache: "no-store" })
+	.then(r => r.json())
+	.catch(() => ({ status: "error", cars: [] }));
+
 // Legacy code below expects these globals to exist.
 let session = localStorage.getItem("session") || null;
 let check = false;
@@ -231,10 +237,7 @@ initAuth({
 		initCarSelector({
 			endpoint,
 			get,
-			carsRequest: async (base) => {
-				const r = await fetch(base + "/api/cars", { credentials: "same-origin", cache: "no-store" });
-				return await r.json();
-			},
+			carsRequest: async () => _carsPromise,
 			onCarsLoaded: () => {},
 			onSelectCar: (car) => {
 				// Keep business logic intact: reuse current selectCar pathway.
