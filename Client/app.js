@@ -1,10 +1,10 @@
 // Cache-bust ESM modules on deploys (Safari/iOS is especially aggressive here).
-const __v = "20260507_1";
-import { endpoint, postRequest } from "./js/api.js?v=20260507_1";
-import { get } from "./js/dom.js?v=20260507_1";
-import { initAuth } from "./js/auth.js?v=20260507_1";
-import { initCarSelector } from "./js/carSelector.js?v=20260507_1";
-import { initLocationsAdminUi } from "./js/admin/locations.js?v=20260507_1";
+const __v = "20260507_2";
+import { endpoint, postRequest } from "./js/api.js?v=20260507_2";
+import { get } from "./js/dom.js?v=20260507_2";
+import { initAuth } from "./js/auth.js?v=20260507_2";
+import { initCarSelector } from "./js/carSelector.js?v=20260507_2";
+import { initLocationsAdminUi } from "./js/admin/locations.js?v=20260507_2";
 
 // Always keep Help navigation working, even if legacy code below throws.
 // No internal links inside the button: just a hard navigation to /help.
@@ -242,35 +242,41 @@ let checkUpPreData = {
 	"mileage": null,
 	"photo_mileage": null,
 	"geo": null,
+	// exterior
+	"photo_rl": null, "photo_rr": null, "photo_br": null, "photo_bl": null,
+	"photo_r": null,  "photo_b": null,  "photo_l": null,  "photo_rg": null,
+	"body_condition": null,
+	// wheels
+	"wheel_damaged": null,
+	"wheel_damaged_photo": null,
+	"wheels_ok": null,
+	"random_wheel_photo": null,
+	// interior
+	"photo_irl": null, "photo_irr": null, "photo_ibr": null, "photo_ibl": null,
+	"interior_condition": null,
+	// gsm
+	"oil_checked": null,
 	"oil_level": null,
 	"antifreeze_ok": null,
 	"brakefluid_level": null,
 	"glasswasher_ok": null,
-	"additional_info": null,
-	"critical_info": null,
-	"wheel_damaged": null,
-	"wheel_damaged_photo": null,
-	"random_wheel_photo": null,
+	// extra checks
+	"lighting_ok": null,
+	"emergency_kit_ok": null,
+	"glass_condition": null,
+	// pt3
 	"fuel_level": null,
-	"clean_ok": null,
-	"interior_ok": null,
-	"details_ok": null,
-	"photo_of_day": null,
+	"dashboard_errors": null,
+	"photo_dashboard": null,
+	"registration_ok": null,
+	"osago_date": null,
+	"osago_missing": null,
 	"wifi": null,
 	"vpn": null,
-	"photo_rl": null,
-	"photo_rr": null,
-	"photo_br": null,
-	"photo_bl": null,
-	"photo_r": null,
-	"photo_b": null,
-	"photo_l": null,
-	"photo_rg": null,
-	"photo_irl": null,
-	"photo_irr": null,
-	"photo_ibr": null,
-	"photo_ibl": null,
-	"damage_photo": null,
+	"additional_info": null,
+	"critical_info": null,
+	"photo_of_day": null,
+	"quick_exit": null,
 };
 
 let checkUpPostData = {
@@ -384,15 +390,22 @@ addPhotoBlock(get('postPhoto_8'), 'Фото открытая задняя лев
 
 addPhotoBlock(document.getElementById('postPhoto_9'), null, (photoData) => { checkUpPostData.photo_of_day = photoData; });
 
-addPhotoBlock(get('prePhoto_1'), 'Передний левый угол', (photoData) => { checkUpPreData.photo_rl = photoData; });
-addPhotoBlock(get('prePhoto_2'), 'Передний правый угол', (photoData) => { checkUpPreData.photo_rr = photoData; });
-addPhotoBlock(get('prePhoto_3'), 'Задний правый угол', (photoData) => { checkUpPreData.photo_br = photoData; });
-addPhotoBlock(get('prePhoto_4'), 'Задний левый угол', (photoData) => { checkUpPreData.photo_bl = photoData; });
+addPhotoBlock(get('prePhoto_1'), 'Передний левый угол',  (d) => { checkUpPreData.photo_rl = d; });
+addPhotoBlock(get('prePhoto_2'), 'Передний правый угол', (d) => { checkUpPreData.photo_rr = d; });
+addPhotoBlock(get('prePhoto_3'), 'Задний правый угол',   (d) => { checkUpPreData.photo_br = d; });
+addPhotoBlock(get('prePhoto_4'), 'Задний левый угол',    (d) => { checkUpPreData.photo_bl = d; });
 
-addPhotoBlock(get('prePhoto_5'), 'Фото салона с открытой левой передней двери', (photoData) => { checkUpPreData.photo_irl = photoData; });
-addPhotoBlock(get('prePhoto_6'), 'Фото салона с открытой правой передней двери', (photoData) => { checkUpPreData.photo_irr = photoData; });
-addPhotoBlock(get('prePhoto_7'), 'Фото салона с открытой правой задней двери', (photoData) => { checkUpPreData.photo_ibr = photoData; });
-addPhotoBlock(get('prePhoto_8'), 'Фото салона с открытой левой задней двери', (photoData) => { checkUpPreData.photo_ibl = photoData; });
+addPhotoBlock(get('prePhoto_front'), 'Спереди (бампер, капот, стекло)',    (d) => { checkUpPreData.photo_r  = d; });
+addPhotoBlock(get('prePhoto_rear'),  'Сзади (бампер, багажник, стекло)',   (d) => { checkUpPreData.photo_b  = d; });
+addPhotoBlock(get('prePhoto_left'),  'Левая сторона (бампера, двери)',     (d) => { checkUpPreData.photo_l  = d; });
+addPhotoBlock(get('prePhoto_right'), 'Правая сторона (бампера, двери)',    (d) => { checkUpPreData.photo_rg = d; });
+
+addPhotoBlock(get('prePhoto_5'), 'Салон — водительская дверь открыта',        (d) => { checkUpPreData.photo_irl = d; });
+addPhotoBlock(get('prePhoto_6'), 'Салон — правая передняя дверь открыта',     (d) => { checkUpPreData.photo_irr = d; });
+addPhotoBlock(get('prePhoto_7'), 'Салон — правая задняя дверь (необязательно)', (d) => { checkUpPreData.photo_ibr = d; });
+addPhotoBlock(get('prePhoto_8'), 'Салон — левая задняя дверь (необязательно)', (d) => { checkUpPreData.photo_ibl = d; });
+
+addPhotoBlock(get('photoBlock_panel_pre'), null, (d) => { checkUpPreData.photo_dashboard = d; });
 
 // Show a retake-able thumbnail next to a wheel photo choice container.
 function showWheelThumb(choiceEl, photoData, onClear) {
@@ -1244,45 +1257,70 @@ get('antifreezeSwitch').onchange = () => {
 	checkUpPreData.antifreeze_ok = get('antifreezeSwitch').checked;
 }
 
-get('cleanSwitch').onchange = () => {
-	checkUpPreData.clean_ok = get('cleanSwitch').checked;
-}
-
-get('interior_okSwitch').onchange = () => {
-	checkUpPreData.interior_ok = get('interior_okSwitch').checked;
-}
-
-get('details_okSwitch').onchange = () => {
-	checkUpPreData.details_ok = get('details_okSwitch').checked;
-}
-
 get('glasswasherSwitch').onchange = () => {
 	checkUpPreData.glasswasher_ok = get('glasswasherSwitch').checked;
-}
+};
 
-// Legacy "change number" button removed in favor of CarSelector clear action.
+get('lightingSwitch')?.addEventListener('change', () => {
+	checkUpPreData.lighting_ok = get('lightingSwitch').checked;
+});
+
+get('emergencyKitSwitch')?.addEventListener('change', () => {
+	checkUpPreData.emergency_kit_ok = get('emergencyKitSwitch').checked;
+});
+
+get('registrationSwitch')?.addEventListener('change', () => {
+	checkUpPreData.registration_ok = get('registrationSwitch').checked;
+});
+
+get('panelOkSwitchPre')?.addEventListener('change', () => {
+	const hasErrors = !get('panelOkSwitchPre').checked;
+	checkUpPreData.dashboard_errors = hasErrors;
+	get('photoBlock_panel_pre')?.classList.toggle('hidden', !hasErrors);
+});
+
+get('osago_date')?.addEventListener('input', () => {
+	checkUpPreData.osago_date = get('osago_date').value;
+});
+
+get('impossibleSwitchPre')?.addEventListener('change', () => {
+	get('salonPhotosPre')?.classList.toggle('hidden', get('impossibleSwitchPre').checked);
+});
+
+const ptScrollTop = () => window.scrollTo(0, 0);
 
 get('topt2').onclick = () => {
+	checkUpPreData.body_condition = document.querySelector('input[name="body_condition"]:checked')?.value;
+	checkUpPreData.interior_condition = document.querySelector('input[name="interior_condition"]:checked')?.value;
 	get('pt1').classList.add('hidden');
 	get('pt2').classList.remove('hidden');
-	get('page-pretrip').scrollTo(0, 0);
+	ptScrollTop();
 };
 
+get('pt2back')?.addEventListener('click', () => {
+	get('pt2').classList.add('hidden');
+	get('pt1').classList.remove('hidden');
+	ptScrollTop();
+});
+
 get('topt3').onclick = () => {
+	checkUpPreData.glass_condition = document.querySelector('input[name="glass_condition"]:checked')?.value;
 	get('pt2').classList.add('hidden');
 	get('pt3').classList.remove('hidden');
-	get('page-pretrip').scrollTo(0, 0);
+	ptScrollTop();
 };
+
+get('pt3back')?.addEventListener('click', () => {
+	get('pt3').classList.add('hidden');
+	get('pt2').classList.remove('hidden');
+	ptScrollTop();
+});
 
 get('slider_oil').value = 50;
 get('slider_oil').style.background = 'gray';
 
 get('slider_fuel').value = 50;
 get('slider_fuel').style.background = 'gray';
-
-get('impossibleSwitchPre').onchange = () => {
-	get('salonPhotosPre').classList.toggle('hidden', get('impossibleSwitchPre').checked)
-}
 
 
 get('download_button').onclick = () => {
@@ -1341,6 +1379,10 @@ get('sendPreCheckUp').onclick = async () => {
 	checkUpPreData.brakefluid_level = document.querySelector('input[name="brakefluid_switch"]:checked')?.value;
 	checkUpPreData.wifi = document.querySelector('input[name="wifi_switch"]:checked')?.value;
 	checkUpPreData.vpn = document.querySelector('input[name="vpn_switch"]:checked')?.value;
+	checkUpPreData.body_condition = document.querySelector('input[name="body_condition"]:checked')?.value;
+	checkUpPreData.interior_condition = document.querySelector('input[name="interior_condition"]:checked')?.value;
+	checkUpPreData.glass_condition = document.querySelector('input[name="glass_condition"]:checked')?.value;
+	checkUpPreData.osago_date = get('osago_date')?.value || null;
 	checkUpPreData.date = new Date().toISOString();
 
 	const data = JSON.stringify({ data: checkUpPreData, session: session });

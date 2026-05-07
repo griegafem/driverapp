@@ -69,6 +69,8 @@ TryMigrateCarsFromExcelAndDelete(dataRoot, carDb);
 var locationDb = new LocationDb(Path.Combine(dataRoot, "locations.db"));
 locationDb.EnsureCreatedAndSeed();
 
+var checkupDb = new CheckupDb(Path.Combine(dataRoot, "checkups.db"));
+
 app.UseResponseCompression();
 
 // Return JSON error instead of empty 500 on unhandled exceptions.
@@ -647,8 +649,12 @@ app.MapPost("/api/pre-checkup", async (HttpRequest request) =>
 
     var row = new ExcelProvider.Row();
 
+    var now = DateTime.Now;
+    var submittedAt = now.ToString("yyyy-MM-dd HH:mm:ss");
+    static bool? ToBool(object? v) { var s = v as string; if (string.IsNullOrWhiteSpace(s)) return null; return s == "true" || s == "True" || s == "1"; }
+
     row.Add("Дата записи", (string?)obj.date ?? "");
-    row.Add("Время завершения отчёта", DateTime.Now.ToString());
+    row.Add("Время завершения отчёта", submittedAt);
     row.Add("Фамилия пользователя", user.Surname);
     row.Add("Имя пользователя", user.Name);
     row.Add("Тип отчёта", "CheckUp");
@@ -656,40 +662,124 @@ app.MapPost("/api/pre-checkup", async (HttpRequest request) =>
     row.Add("Марка автомобиля", car.brand);
     row.Add("Модель автомобиля", car.model);
     row.Add("Госномер", car.number);
-    row.Add("Тип ТС", (string?)obj.car_type ?? "");
     row.Add("Пробег", (string?)obj.mileage ?? "");
     row.Add("Геолокация", (string?)obj.geo ?? "");
-    row.Add("Уровень моторного масла проверен", "Да");
+    row.Add("Состояние кузова", (string?)obj.body_condition ?? "");
+    row.Add("Колёса ОК", (string?)obj.wheels_ok ?? "");
+    row.Add("Повреждение колеса", (string?)obj.wheel_damaged ?? "");
+    row.Add("Состояние салона", (string?)obj.interior_condition ?? "");
+    row.Add("Уровень моторного масла проверен", (string?)obj.oil_checked == "true" ? "ДА" : "");
     row.Add("Уровень моторного масла", (string?)obj.oil_level ?? "");
     row.Add("Уровень антифриза в норме", (string?)obj.antifreeze_ok ?? "");
     row.Add("Тормозная жидкость", (string?)obj.brakefluid_level ?? "");
     row.Add("Омывающей жидкости больше 80%", (string?)obj.glasswasher_ok ?? "");
+    row.Add("Освещение проверено", (string?)obj.lighting_ok ?? "");
+    row.Add("Аварийный набор", (string?)obj.emergency_kit_ok ?? "");
+    row.Add("Состояние стёкол", (string?)obj.glass_condition ?? "");
+    row.Add("Пробег", (string?)obj.mileage ?? "");
+    row.Add("Уровень топлива", (string?)obj.fuel_level ?? "");
+    row.Add("Ошибки приборной панели", (string?)obj.dashboard_errors ?? "");
+    row.Add("СТС", (string?)obj.registration_ok ?? "");
+    row.Add("ОСАГО до", (string?)obj.osago_date ?? "");
     row.Add("Пожелания по авто", (string?)obj.additional_info ?? "");
     row.Add("Критические замечания", (string?)obj.critical_info ?? "");
-    row.Add("Уровень топлива", (string?)obj.fuel_level ?? "");
-    row.Add("Авто чистый", (string?)obj.clean_ok ?? "");
-    row.Add("Салон проверен и чист", (string?)obj.interior_ok ?? "");
     row.Add("Wifi", (string?)obj.wifi ?? "");
     row.Add("VPN", (string?)obj.vpn ?? "");
+    row.Add("Быстрый выезд", (string?)obj.quick_exit == "true" ? "ДА" : "");
 
-    TryAddPhoto(row, "Фото пробега", (string?)obj.photo_mileage, car, "Фото пробега", dataRoot);
-    TryAddPhoto(row, "Фото передний левый угол", (string?)obj.photo_rl, car, "Фото передний левый угол", dataRoot);
-    TryAddPhoto(row, "Фото передний правый угол", (string?)obj.photo_rr, car, "Фото передний правый угол", dataRoot);
-    TryAddPhoto(row, "Фото задний правый угол", (string?)obj.photo_br, car, "Фото задний правый угол", dataRoot);
-    TryAddPhoto(row, "Фото задний левый угол", (string?)obj.photo_bl, car, "Фото задний левый угол", dataRoot);
-    TryAddPhoto(row, "Фото спереди", (string?)obj.photo_r, car, "Фото спереди", dataRoot);
-    TryAddPhoto(row, "Фото задняя часть", (string?)obj.photo_b, car, "Фото задняя часть", dataRoot);
-    TryAddPhoto(row, "Фото левая сторона", (string?)obj.photo_l, car, "Фото левая сторона", dataRoot);
-    TryAddPhoto(row, "Фото правая сторона", (string?)obj.photo_rg, car, "Фото правая сторона", dataRoot);
-    TryAddPhoto(row, "Фото открытая передняя левая дверь", (string?)obj.photo_irl, car, "Фото открытая передняя левая дверь", dataRoot);
-    TryAddPhoto(row, "Фото открытая передняя правая дверь", (string?)obj.photo_irr, car, "Фото открытая передняя правая дверь", dataRoot);
-    TryAddPhoto(row, "Фото открытая задняя правая дверь", (string?)obj.photo_ibr, car, "Фото открытая задняя правая дверь", dataRoot);
-    TryAddPhoto(row, "Фото открытая задняя левая дверь", (string?)obj.photo_ibl, car, "Фото открытая задняя левая дверь", dataRoot);
-    TryAddPhoto(row, "Фото дня", (string?)obj.photo_of_day, car, "Фото дня", dataRoot);
+    var pMileage  = TrySavePhoto((string?)obj.photo_mileage, car, "Фото пробега", dataRoot);
+    var pRl       = TrySavePhoto((string?)obj.photo_rl,      car, "Фото перед лев", dataRoot);
+    var pRr       = TrySavePhoto((string?)obj.photo_rr,      car, "Фото перед прав", dataRoot);
+    var pBr       = TrySavePhoto((string?)obj.photo_br,      car, "Фото зад прав", dataRoot);
+    var pBl       = TrySavePhoto((string?)obj.photo_bl,      car, "Фото зад лев", dataRoot);
+    var pFront    = TrySavePhoto((string?)obj.photo_r,       car, "Фото спереди", dataRoot);
+    var pRear     = TrySavePhoto((string?)obj.photo_b,       car, "Фото сзади", dataRoot);
+    var pLeft     = TrySavePhoto((string?)obj.photo_l,       car, "Фото лев сторона", dataRoot);
+    var pRight    = TrySavePhoto((string?)obj.photo_rg,      car, "Фото прав сторона", dataRoot);
+    var pIrl      = TrySavePhoto((string?)obj.photo_irl,     car, "Фото салон перед лев", dataRoot);
+    var pIrr      = TrySavePhoto((string?)obj.photo_irr,     car, "Фото салон перед прав", dataRoot);
+    var pIbr      = TrySavePhoto((string?)obj.photo_ibr,     car, "Фото салон зад прав", dataRoot);
+    var pIbl      = TrySavePhoto((string?)obj.photo_ibl,     car, "Фото салон зад лев", dataRoot);
+    var pDay      = TrySavePhoto((string?)obj.photo_of_day,  car, "Фото дня", dataRoot);
+    var pDash     = TrySavePhoto((string?)obj.photo_dashboard, car, "Фото панели", dataRoot);
+
+    static void AddPhotoRow(ExcelProvider.Row r, string col, string? path)
+    { if (!string.IsNullOrEmpty(path)) r.Add(col, $"/api/get-photo?id={path}"); }
+
+    AddPhotoRow(row, "Фото пробега", pMileage);
+    AddPhotoRow(row, "Фото передний левый угол", pRl);
+    AddPhotoRow(row, "Фото передний правый угол", pRr);
+    AddPhotoRow(row, "Фото задний правый угол", pBr);
+    AddPhotoRow(row, "Фото задний левый угол", pBl);
+    AddPhotoRow(row, "Фото спереди", pFront);
+    AddPhotoRow(row, "Фото задняя часть", pRear);
+    AddPhotoRow(row, "Фото левая сторона", pLeft);
+    AddPhotoRow(row, "Фото правая сторона", pRight);
+    AddPhotoRow(row, "Фото открытая передняя левая дверь", pIrl);
+    AddPhotoRow(row, "Фото открытая передняя правая дверь", pIrr);
+    AddPhotoRow(row, "Фото открытая задняя правая дверь", pIbr);
+    AddPhotoRow(row, "Фото открытая задняя левая дверь", pIbl);
+    AddPhotoRow(row, "Фото дня", pDay);
+    AddPhotoRow(row, "Фото приборной панели", pDash);
 
     await xlLock.WaitAsync();
     try { driverApp.AddCheckUp(row); }
     finally { xlLock.Release(); }
+
+    try
+    {
+        checkupDb.Insert(new CheckupDb.PreCheckupRecord
+        {
+            SubmittedAt       = submittedAt,
+            UserLogin         = login,
+            UserName          = user.Name,
+            UserSurname       = user.Surname,
+            CarId             = carRec?.Id.ToString() ?? (string?)obj.car_id,
+            CarNumber         = car.number,
+            CarBrand          = car.brand,
+            CarModel          = car.model,
+            Geo               = (string?)obj.geo,
+            BodyCondition     = (string?)obj.body_condition,
+            WheelsOk          = ToBool((string?)obj.wheels_ok),
+            WheelDamaged      = ToBool((string?)obj.wheel_damaged),
+            InteriorCondition = (string?)obj.interior_condition,
+            OilChecked        = ToBool((string?)obj.oil_checked),
+            OilLevel          = (string?)obj.oil_level,
+            CoolantOk         = ToBool((string?)obj.antifreeze_ok),
+            BrakeFluid        = (string?)obj.brakefluid_level,
+            WasherOk          = ToBool((string?)obj.glasswasher_ok),
+            LightingOk        = ToBool((string?)obj.lighting_ok),
+            EmergencyKitOk    = ToBool((string?)obj.emergency_kit_ok),
+            GlassCondition    = (string?)obj.glass_condition,
+            Mileage           = (string?)obj.mileage,
+            FuelLevel         = (string?)obj.fuel_level,
+            DashboardErrors   = ToBool((string?)obj.dashboard_errors),
+            RegistrationOk    = ToBool((string?)obj.registration_ok),
+            OsagoDate         = (string?)obj.osago_date,
+            OsagoMissing      = ToBool((string?)obj.osago_missing),
+            Wifi              = (string?)obj.wifi,
+            Vpn               = (string?)obj.vpn,
+            AdditionalInfo    = (string?)obj.additional_info,
+            CriticalInfo      = (string?)obj.critical_info,
+            QuickExit         = ToBool((string?)obj.quick_exit),
+            PhotoMileage      = pMileage,
+            PhotoRl           = pRl,
+            PhotoRr           = pRr,
+            PhotoBr           = pBr,
+            PhotoBl           = pBl,
+            PhotoFront        = pFront,
+            PhotoRear         = pRear,
+            PhotoLeft         = pLeft,
+            PhotoRight        = pRight,
+            PhotoIrl          = pIrl,
+            PhotoIrr          = pIrr,
+            PhotoIbr          = pIbr,
+            PhotoIbl          = pIbl,
+            PhotoOfDay        = pDay,
+            PhotoDashboard    = pDash,
+        });
+    }
+    catch { }
 
     return Results.Text(JsonConvert.SerializeObject(new { status = "ok" }), "application/json; charset=utf-8");
 });
@@ -826,6 +916,13 @@ static async Task<string> ReadBodyAsync(HttpRequest request)
     }
 
     return body;
+}
+
+static string? TrySavePhoto(string? dataUri, DriverAppProvider.Car car, string detail, string dataRoot)
+{
+    if (string.IsNullOrWhiteSpace(dataUri)) return null;
+    try { return SavePicture(dataUri, car, detail, dataRoot); }
+    catch { return null; }
 }
 
 static void TryAddPhoto(ExcelProvider.Row row, string columnName, string? dataUri, DriverAppProvider.Car car, string detail, string dataRoot)
