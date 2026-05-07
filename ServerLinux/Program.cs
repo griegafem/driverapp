@@ -676,7 +676,6 @@ app.MapPost("/api/pre-checkup", async (HttpRequest request) =>
     row.Add("Освещение проверено", (string?)obj.lighting_ok ?? "");
     row.Add("Аварийный набор", (string?)obj.emergency_kit_ok ?? "");
     row.Add("Состояние стёкол", (string?)obj.glass_condition ?? "");
-    row.Add("Пробег", (string?)obj.mileage ?? "");
     row.Add("Уровень топлива", (string?)obj.fuel_level ?? "");
     row.Add("Ошибки приборной панели", (string?)obj.dashboard_errors ?? "");
     row.Add("СТС", (string?)obj.registration_ok ?? "");
