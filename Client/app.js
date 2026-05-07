@@ -1,10 +1,10 @@
 // Cache-bust ESM modules on deploys (Safari/iOS is especially aggressive here).
-const __v = "20260507_3";
-import { endpoint, postRequest } from "./js/api.js?v=20260507_3";
-import { get } from "./js/dom.js?v=20260507_3";
-import { initAuth } from "./js/auth.js?v=20260507_3";
-import { initCarSelector } from "./js/carSelector.js?v=20260507_3";
-import { initLocationsAdminUi } from "./js/admin/locations.js?v=20260507_3";
+const __v = "20260507_4";
+import { endpoint, postRequest } from "./js/api.js?v=20260507_4";
+import { get } from "./js/dom.js?v=20260507_4";
+import { initAuth } from "./js/auth.js?v=20260507_4";
+import { initCarSelector } from "./js/carSelector.js?v=20260507_4";
+import { initLocationsAdminUi } from "./js/admin/locations.js?v=20260507_4";
 
 // Always keep Help navigation working, even if legacy code below throws.
 // No internal links inside the button: just a hard navigation to /help.
@@ -1161,7 +1161,8 @@ function updateSliderFuel(){
 	checkUpPreData.fuel_level = value;
 }
 
-slider_fuel.addEventListener("input", updateSliderFuel);
+let fuelLevelTouched = false;
+slider_fuel.addEventListener("input", () => { fuelLevelTouched = true; updateSliderFuel(); });
 
 if (damagedwheelSwitch) {
 	damagedwheelSwitch.onchange = () => {
@@ -1270,23 +1271,27 @@ get('registrationSwitch')?.addEventListener('change', () => {
 });
 
 get('panelOkSwitchPre')?.addEventListener('change', () => {
-	const checked = get('panelOkSwitchPre').checked;
-	get('photoBlock_panel_pre')?.classList.toggle('hidden', !checked);
-	get('panelErrorRow')?.classList.toggle('hidden', !checked);
-	if (!checked) {
+	const okOn = get('panelOkSwitchPre').checked;
+	if (okOn) {
 		const errSwitch = get('panelErrorSwitchPre');
 		if (errSwitch) errSwitch.checked = false;
-		get('panelOkRow')?.classList.remove('hidden');
-		checkUpPreData.dashboard_errors = null;
-	} else {
 		checkUpPreData.dashboard_errors = false;
+	} else {
+		checkUpPreData.dashboard_errors = null;
 	}
+	get('photoBlock_panel_pre')?.classList.toggle('hidden', !okOn);
 });
 
 get('panelErrorSwitchPre')?.addEventListener('change', () => {
-	const hasErrors = get('panelErrorSwitchPre').checked;
-	checkUpPreData.dashboard_errors = hasErrors;
-	get('panelOkRow')?.classList.toggle('hidden', hasErrors);
+	const errOn = get('panelErrorSwitchPre').checked;
+	if (errOn) {
+		const okSwitch = get('panelOkSwitchPre');
+		if (okSwitch) okSwitch.checked = false;
+		checkUpPreData.dashboard_errors = true;
+	} else {
+		checkUpPreData.dashboard_errors = null;
+	}
+	get('photoBlock_panel_pre')?.classList.toggle('hidden', !errOn);
 });
 
 get('osago_date')?.addEventListener('input', () => {
@@ -1299,16 +1304,128 @@ get('impossibleSwitchPre')?.addEventListener('change', () => {
 	get('salonPhotosPre')?.classList.toggle('hidden', get('impossibleSwitchPre').checked);
 });
 
-get('quickExitBtn')?.addEventListener('click', () => {
-	checkUpPreData.quick_exit = true;
-	get('sendPreCheckUp')?.click();
-});
-
 const ptScrollTop = () => window.scrollTo(0, 0);
 
+// ── Validation helpers ──
+
+function showStepError(elId, missing) {
+	const el = get(elId);
+	if (!el) return;
+	if (missing.length > 0) {
+		el.textContent = '⚠ Не заполнено: ' + missing.join(', ');
+		el.classList.remove('hidden');
+		el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+	} else {
+		el.classList.add('hidden');
+	}
+}
+
+function validatePt1() {
+	const missing = [];
+	if (!checkUpPreData.geo) missing.push('Геолокация');
+	if (!checkUpPreData.photo_rl || !checkUpPreData.photo_rr ||
+	    !checkUpPreData.photo_br || !checkUpPreData.photo_bl)
+		missing.push('4 угловых фото');
+	if (!checkUpPreData.photo_r || !checkUpPreData.photo_b ||
+	    !checkUpPreData.photo_l || !checkUpPreData.photo_rg)
+		missing.push('4 фото сторон');
+	const bodyCond = document.querySelector('input[name="body_condition"]:checked')?.value;
+	if (!bodyCond || bodyCond === 'NONE') missing.push('Состояние кузова');
+	const damaged = get('damagedwheelSwitch')?.checked;
+	const wheelOk = get('wheelokSwitch')?.checked;
+	if (!damaged && !wheelOk) {
+		missing.push('Проверка колёс');
+	} else {
+		if (damaged && !checkUpPreData.wheel_damaged_photo) missing.push('Фото повреждения колеса');
+		if (wheelOk && !checkUpPreData.random_wheel_photo) missing.push('Фото колёс');
+	}
+	if (!get('impossibleSwitchPre')?.checked) {
+		if (!checkUpPreData.photo_irl || !checkUpPreData.photo_irr)
+			missing.push('2 фото салона');
+	}
+	const interiorCond = document.querySelector('input[name="interior_condition"]:checked')?.value;
+	if (!interiorCond || interiorCond === 'NONE') missing.push('Состояние салона');
+	return missing;
+}
+
+function validatePt2() {
+	const missing = [];
+	if (!get('oilSwitch')?.checked) missing.push('Масло проверено');
+	if (!get('antifreezeSwitch')?.checked) missing.push('Антифриз');
+	const brakeVal = document.querySelector('input[name="brakefluid_switch"]:checked')?.value;
+	if (!brakeVal || brakeVal === 'NONE') missing.push('Тормозная жидкость');
+	if (!get('glasswasherSwitch')?.checked) missing.push('Омывайка');
+	if (!get('lightingSwitch')?.checked) missing.push('Освещение');
+	if (!get('emergencyKitSwitch')?.checked) missing.push('Аварийный набор');
+	const glassCond = document.querySelector('input[name="glass_condition"]:checked')?.value;
+	if (!glassCond || glassCond === 'NONE') missing.push('Состояние стёкол');
+	return missing;
+}
+
+function validatePt3() {
+	const missing = [];
+	if (!get('mileage')?.value) missing.push('Пробег');
+	if (!checkUpPreData.photo_mileage) missing.push('Фото пробега');
+	if (!fuelLevelTouched) missing.push('Уровень топлива');
+	if (!get('panelOkSwitchPre')?.checked && !get('panelErrorSwitchPre')?.checked)
+		missing.push('Приборная панель');
+	if (!get('registrationSwitch')?.checked) missing.push('СТС');
+	if (!get('osago_date')?.value) missing.push('ОСАГО');
+	const wifiVal = document.querySelector('input[name="wifi_switch"]:checked')?.value;
+	if (!wifiVal || wifiVal === 'NONE') missing.push('Wi‑Fi');
+	const vpnVal = document.querySelector('input[name="vpn_switch"]:checked')?.value;
+	if (!vpnVal || vpnVal === 'NONE') missing.push('VPN');
+	return missing;
+}
+
+function collectLatestFields() {
+	checkUpPreData.body_condition      = document.querySelector('input[name="body_condition"]:checked')?.value;
+	checkUpPreData.interior_condition  = document.querySelector('input[name="interior_condition"]:checked')?.value;
+	checkUpPreData.glass_condition     = document.querySelector('input[name="glass_condition"]:checked')?.value;
+	checkUpPreData.brakefluid_level    = document.querySelector('input[name="brakefluid_switch"]:checked')?.value;
+	checkUpPreData.wifi                = document.querySelector('input[name="wifi_switch"]:checked')?.value;
+	checkUpPreData.vpn                 = document.querySelector('input[name="vpn_switch"]:checked')?.value;
+	checkUpPreData.mileage             = get('mileage')?.value || null;
+	checkUpPreData.osago_date          = get('osago_date')?.value || null;
+	checkUpPreData.date                = new Date().toISOString();
+}
+
+async function doSubmitPreCheckup() {
+	collectLatestFields();
+	const data = JSON.stringify({ data: checkUpPreData, session: session });
+	const btn = get('sendPreCheckUp');
+	const defaultLabel = "Завершить осмотр";
+	btn.classList.add('inactive');
+	btn.innerText = "Отправка...";
+	try {
+		const response = await postRequest(endpoint + "/api/pre-checkup", data);
+		if (response?.status !== "ok") {
+			showSubmitError(formatSubmitFailure(null, response));
+			btn.innerText = defaultLabel;
+			return;
+		}
+		btn.innerText = "Отчёт отправлен!";
+		if (tg && tg.platform && tg.platform !== 'unknown') {
+			tg.showAlert("Осмотр успешно отправлен");
+			setTimeout(() => { tg.close(); }, 1500);
+		} else {
+			alert("Осмотр успешно отправлен");
+			setTimeout(() => { location.reload(); }, 1500);
+		}
+	} catch (err) {
+		showSubmitError(formatSubmitFailure(err, null));
+		btn.innerText = defaultLabel;
+	} finally {
+		btn.classList.remove('inactive');
+	}
+}
+
+// ── Step navigation with validation ──
+
 get('topt2').onclick = () => {
-	checkUpPreData.body_condition = document.querySelector('input[name="body_condition"]:checked')?.value;
-	checkUpPreData.interior_condition = document.querySelector('input[name="interior_condition"]:checked')?.value;
+	const missing = validatePt1();
+	showStepError('pt1Errors', missing);
+	if (missing.length > 0) return;
 	get('pt1').classList.add('hidden');
 	get('pt2').classList.remove('hidden');
 	ptScrollTop();
@@ -1321,7 +1438,10 @@ get('pt2back')?.addEventListener('click', () => {
 });
 
 get('topt3').onclick = () => {
-	checkUpPreData.glass_condition = document.querySelector('input[name="glass_condition"]:checked')?.value;
+	const missing = validatePt2();
+	showStepError('pt2Errors', missing);
+	if (missing.length > 0) return;
+	get('pt2Errors')?.classList.add('hidden');
 	get('pt2').classList.add('hidden');
 	get('pt3').classList.remove('hidden');
 	ptScrollTop();
@@ -1331,6 +1451,14 @@ get('pt3back')?.addEventListener('click', () => {
 	get('pt3').classList.add('hidden');
 	get('pt2').classList.remove('hidden');
 	ptScrollTop();
+});
+
+get('quickExitBtn')?.addEventListener('click', () => {
+	const missing = [...validatePt1(), ...validatePt2()];
+	showStepError('pt2Errors', missing);
+	if (missing.length > 0) return;
+	checkUpPreData.quick_exit = true;
+	doSubmitPreCheckup();
 });
 
 get('slider_oil').value = 50;
@@ -1393,68 +1521,10 @@ get('help_button').onclick = () => {
 }
 
 get('sendPreCheckUp').onclick = async () => {
-	checkUpPreData.brakefluid_level = document.querySelector('input[name="brakefluid_switch"]:checked')?.value;
-	checkUpPreData.wifi = document.querySelector('input[name="wifi_switch"]:checked')?.value;
-	checkUpPreData.vpn = document.querySelector('input[name="vpn_switch"]:checked')?.value;
-	checkUpPreData.body_condition = document.querySelector('input[name="body_condition"]:checked')?.value;
-	checkUpPreData.interior_condition = document.querySelector('input[name="interior_condition"]:checked')?.value;
-	checkUpPreData.glass_condition = document.querySelector('input[name="glass_condition"]:checked')?.value;
-	checkUpPreData.osago_date = get('osago_date')?.value || null;
-	checkUpPreData.date = new Date().toISOString();
-
-	const btn = get('sendPreCheckUp');
-	const defaultLabel = "Завершить осмотр";
-
-	// Validation
-	const missing = [];
-	if (!checkUpPreData.geo) missing.push('Геолокация');
-	if (!checkUpPreData.mileage) missing.push('Пробег');
-	if (!checkUpPreData.body_condition || checkUpPreData.body_condition === 'NONE') missing.push('Состояние кузова');
-	if (!checkUpPreData.interior_condition || checkUpPreData.interior_condition === 'NONE') missing.push('Состояние салона');
-	if (!checkUpPreData.brakefluid_level || checkUpPreData.brakefluid_level === 'NONE') missing.push('Уровень тормозной жидкости');
-	if (!checkUpPreData.glass_condition || checkUpPreData.glass_condition === 'NONE') missing.push('Состояние стёкол');
-	if (!checkUpPreData.wifi || checkUpPreData.wifi === 'NONE') missing.push('Wi‑Fi');
-	if (!checkUpPreData.vpn || checkUpPreData.vpn === 'NONE') missing.push('VPN');
-
-	const errEl = get('preCheckupErrors');
-	if (missing.length > 0) {
-		if (errEl) {
-			errEl.textContent = '⚠ Не заполнено: ' + missing.join(', ');
-			errEl.classList.remove('hidden');
-			errEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
-		}
-		return;
-	}
-	if (errEl) errEl.classList.add('hidden');
-
-	const data = JSON.stringify({ data: checkUpPreData, session: session });
-
-	btn.classList.add('inactive');
-	btn.innerText = "Отправка...";
-
-	try {
-		const response = await postRequest(endpoint + "/api/pre-checkup", data);
-		if (response?.status !== "ok") {
-			showSubmitError(formatSubmitFailure(null, response));
-			btn.innerText = defaultLabel;
-			return;
-		}
-		btn.innerText = "Отчёт отправлен!";
-		if (tg && tg.platform && tg.platform !== 'unknown') {
-			tg.showAlert("Осмотр успешно отправлен");
-			setTimeout(() => { tg.close(); }, 1500);
-		} else {
-			alert("Осмотр успешно отправлен");
-			setTimeout(() => { location.reload(); }, 1500);
-		}
-	} catch (err) {
-		showSubmitError(formatSubmitFailure(err, null));
-		btn.innerText = defaultLabel;
-	} finally {
-		btn.classList.remove('inactive');
-	}
-
-	console.log(checkUpPreData);
+	const missing = validatePt3();
+	showStepError('preCheckupErrors', missing);
+	if (missing.length > 0) return;
+	await doSubmitPreCheckup();
 };
 
 get('sendPostCheckUp').onclick = async () => {

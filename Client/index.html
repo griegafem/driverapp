@@ -4,13 +4,13 @@
 <head>
 	<meta charset="UTF-8" name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 	<title>Осмотр авто</title>
-	<link rel="stylesheet" href="/driver-app/styles.css?v=20260507_3">
-	<link rel="modulepreload" href="/driver-app/app.js?v=20260507_3">
-	<link rel="modulepreload" href="/driver-app/js/api.js?v=20260507_3">
-	<link rel="modulepreload" href="/driver-app/js/dom.js?v=20260507_3">
-	<link rel="modulepreload" href="/driver-app/js/auth.js?v=20260507_3">
-	<link rel="modulepreload" href="/driver-app/js/carSelector.js?v=20260507_3">
-	<link rel="modulepreload" href="/driver-app/js/admin/locations.js?v=20260507_3">
+	<link rel="stylesheet" href="/driver-app/styles.css?v=20260507_4">
+	<link rel="modulepreload" href="/driver-app/app.js?v=20260507_4">
+	<link rel="modulepreload" href="/driver-app/js/api.js?v=20260507_4">
+	<link rel="modulepreload" href="/driver-app/js/dom.js?v=20260507_4">
+	<link rel="modulepreload" href="/driver-app/js/auth.js?v=20260507_4">
+	<link rel="modulepreload" href="/driver-app/js/carSelector.js?v=20260507_4">
+	<link rel="modulepreload" href="/driver-app/js/admin/locations.js?v=20260507_4">
 	<script>
 		// Optional override for API base URL (for prod/staging split).
 		// If empty/undefined, client will use current origin.
@@ -490,6 +490,7 @@
 				</div>
 			</div>
 
+			<div id="pt1Errors" class="hidden"></div>
 			<button id="topt2" class="def_button">Продолжить →</button>
 
 		</div>
@@ -584,6 +585,7 @@
 				</div>
 			</div>
 
+			<div id="pt2Errors" class="hidden"></div>
 			<button id="quickExitBtn" class="def_button def_button--warn">💣 Быстрый отчёт</button>
 
 			<button id="topt3" class="def_button">Продолжить →</button>
@@ -623,7 +625,7 @@
 					</label>
 				</div>
 				<div id="photoBlock_panel_pre" class="hidden" style="margin-top:8px;"></div>
-				<div id="panelErrorRow" class="commonRow hidden" style="margin-top:12px;">
+				<div id="panelErrorRow" class="commonRow" style="margin-top:12px;">
 					<div class="commonRow__label" style="color:#ef4444;font-weight:700;">Ошибки на приборной панели есть</div>
 					<label class="msToggle">
 						<input type="checkbox" id="panelErrorSwitchPre" class="msToggle__input msToggle__input--red">
@@ -842,7 +844,7 @@
 	</div>
 
 	<script defer src="https://telegram.org/js/telegram-web-app.js"></script>
-	<script type="module" src="/driver-app/app.js?v=20260507_3"></script>
+	<script type="module" src="/driver-app/app.js?v=20260507_4"></script>
 </body>
 
 </html>
