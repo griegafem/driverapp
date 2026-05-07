@@ -1,10 +1,10 @@
 // Cache-bust ESM modules on deploys (Safari/iOS is especially aggressive here).
-const __v = "20260507_5";
-import { endpoint, postRequest } from "./js/api.js?v=20260507_5";
-import { get } from "./js/dom.js?v=20260507_5";
-import { initAuth } from "./js/auth.js?v=20260507_5";
-import { initCarSelector } from "./js/carSelector.js?v=20260507_5";
-import { initLocationsAdminUi } from "./js/admin/locations.js?v=20260507_5";
+const __v = "20260507_7";
+import { endpoint, postRequest } from "./js/api.js?v=20260507_7";
+import { get } from "./js/dom.js?v=20260507_7";
+import { initAuth } from "./js/auth.js?v=20260507_7";
+import { initCarSelector } from "./js/carSelector.js?v=20260507_7";
+import { initLocationsAdminUi } from "./js/admin/locations.js?v=20260507_7";
 
 // Always keep Help navigation working, even if legacy code below throws.
 // No internal links inside the button: just a hard navigation to /help.
@@ -84,6 +84,7 @@ function openSidebar(){
   sidebarOverlay?.classList?.remove?.("hidden");
   sidebar?.setAttribute?.("aria-hidden", "false");
   sidebarOverlay?.setAttribute?.("aria-hidden", "false");
+  sidebarToggle?.classList?.add?.("hidden");
 }
 
 function closeSidebar(){
@@ -91,6 +92,7 @@ function closeSidebar(){
   sidebarOverlay?.classList?.add?.("hidden");
   sidebar?.setAttribute?.("aria-hidden", "true");
   sidebarOverlay?.setAttribute?.("aria-hidden", "true");
+  sidebarToggle?.classList?.remove?.("hidden");
 }
 
 sidebarToggle?.addEventListener?.("click", () => {
