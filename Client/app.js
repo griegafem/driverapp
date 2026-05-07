@@ -1,10 +1,10 @@
 // Cache-bust ESM modules on deploys (Safari/iOS is especially aggressive here).
-const __v = "20260507_9";
-import { endpoint, postRequest } from "./js/api.js?v=20260507_9";
-import { get } from "./js/dom.js?v=20260507_9";
-import { initAuth } from "./js/auth.js?v=20260507_9";
-import { initCarSelector } from "./js/carSelector.js?v=20260507_9";
-import { initLocationsAdminUi } from "./js/admin/locations.js?v=20260507_9";
+const __v = "20260507_10";
+import { endpoint, postRequest } from "./js/api.js?v=20260507_10";
+import { get } from "./js/dom.js?v=20260507_10";
+import { initAuth } from "./js/auth.js?v=20260507_10";
+import { initCarSelector } from "./js/carSelector.js?v=20260507_10";
+import { initLocationsAdminUi } from "./js/admin/locations.js?v=20260507_10";
 
 // Always keep Help navigation working, even if legacy code below throws.
 // No internal links inside the button: just a hard navigation to /help.
@@ -100,6 +100,20 @@ sidebarToggle?.addEventListener?.("click", () => {
 });
 sidebarClose?.addEventListener?.("click", closeSidebar);
 sidebarOverlay?.addEventListener?.("click", closeSidebar);
+
+// Hide sidebar toggle whenever any modal overlay is open
+const _syncToggleToModals = () => {
+  const anyOpen = Array.from(document.querySelectorAll(".msModalOverlay"))
+    .some(el => !el.classList.contains("hidden"));
+  if (anyOpen) {
+    sidebarToggle?.classList?.add?.("hidden");
+  } else if (sidebar?.classList?.contains?.("hidden")) {
+    sidebarToggle?.classList?.remove?.("hidden");
+  }
+};
+new MutationObserver(_syncToggleToModals).observe(document.body, {
+  subtree: true, attributeFilter: ["class"], attributes: true
+});
 
 document.getElementById("sidebarGoHome")?.addEventListener?.("click", () => { closeSidebar(); nextPage("car"); });
 document.getElementById("sidebarLogout")?.addEventListener?.("click", () => { closeSidebar(); doLogout(); });
