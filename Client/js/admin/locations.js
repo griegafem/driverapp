@@ -34,6 +34,7 @@ export function initLocationsAdminUi({ endpoint, postRequest, get, onNavigate })
 		modalOverlay.classList.remove("hidden");
 		modal.setAttribute("aria-hidden", "false");
 		modalOverlay.setAttribute("aria-hidden", "false");
+		window._onModalOpen?.();
 	};
 
 	const closeModal = () => {
@@ -42,6 +43,7 @@ export function initLocationsAdminUi({ endpoint, postRequest, get, onNavigate })
 		modal.setAttribute("aria-hidden", "true");
 		modalOverlay.setAttribute("aria-hidden", "true");
 		setModalStatus("");
+		window._onModalClose?.();
 	};
 
 	const confirmDelete = (label) => new Promise((resolve) => {
@@ -52,12 +54,14 @@ export function initLocationsAdminUi({ endpoint, postRequest, get, onNavigate })
 			confirmOverlay.classList.remove("hidden");
 			confirmModal.setAttribute("aria-hidden", "false");
 			confirmOverlay.setAttribute("aria-hidden", "false");
+			window._onModalOpen?.();
 		};
 		const close = () => {
 			confirmModal.classList.add("hidden");
 			confirmOverlay.classList.add("hidden");
 			confirmModal.setAttribute("aria-hidden", "true");
 			confirmOverlay.setAttribute("aria-hidden", "true");
+			window._onModalClose?.();
 		};
 		const cleanup = () => {
 			confirmYes.onclick = null;

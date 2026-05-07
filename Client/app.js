@@ -1,10 +1,10 @@
 // Cache-bust ESM modules on deploys (Safari/iOS is especially aggressive here).
-const __v = "20260507_10";
-import { endpoint, postRequest } from "./js/api.js?v=20260507_10";
-import { get } from "./js/dom.js?v=20260507_10";
-import { initAuth } from "./js/auth.js?v=20260507_10";
-import { initCarSelector } from "./js/carSelector.js?v=20260507_10";
-import { initLocationsAdminUi } from "./js/admin/locations.js?v=20260507_10";
+const __v = "20260507_11";
+import { endpoint, postRequest } from "./js/api.js?v=20260507_11";
+import { get } from "./js/dom.js?v=20260507_11";
+import { initAuth } from "./js/auth.js?v=20260507_11";
+import { initCarSelector } from "./js/carSelector.js?v=20260507_11";
+import { initLocationsAdminUi } from "./js/admin/locations.js?v=20260507_11";
 
 // Always keep Help navigation working, even if legacy code below throws.
 // No internal links inside the button: just a hard navigation to /help.
@@ -101,19 +101,12 @@ sidebarToggle?.addEventListener?.("click", () => {
 sidebarClose?.addEventListener?.("click", closeSidebar);
 sidebarOverlay?.addEventListener?.("click", closeSidebar);
 
-// Hide sidebar toggle whenever any modal overlay is open
-const _syncToggleToModals = () => {
-  const anyOpen = Array.from(document.querySelectorAll(".msModalOverlay"))
-    .some(el => !el.classList.contains("hidden"));
-  if (anyOpen) {
-    sidebarToggle?.classList?.add?.("hidden");
-  } else if (sidebar?.classList?.contains?.("hidden")) {
+// Called by every modal open/close (including locations.js via window)
+window._onModalOpen  = () => sidebarToggle?.classList?.add?.("hidden");
+window._onModalClose = () => {
+  if (sidebar?.classList?.contains?.("hidden"))
     sidebarToggle?.classList?.remove?.("hidden");
-  }
 };
-new MutationObserver(_syncToggleToModals).observe(document.body, {
-  subtree: true, attributeFilter: ["class"], attributes: true
-});
 
 document.getElementById("sidebarGoHome")?.addEventListener?.("click", () => { closeSidebar(); nextPage("car"); });
 document.getElementById("sidebarLogout")?.addEventListener?.("click", () => { closeSidebar(); doLogout(); });
@@ -748,6 +741,7 @@ function initUsersAdminUi(){
 		modalOverlay.classList.remove("hidden");
 		modal.setAttribute("aria-hidden", "false");
 		modalOverlay.setAttribute("aria-hidden", "false");
+		window._onModalOpen?.();
 	};
 
 	const closeModal = () => {
@@ -756,6 +750,7 @@ function initUsersAdminUi(){
 		modal.setAttribute("aria-hidden", "true");
 		modalOverlay.setAttribute("aria-hidden", "true");
 		setModalStatus("");
+		window._onModalClose?.();
 	};
 
 	const confirmDelete = (label) => {
@@ -767,6 +762,7 @@ function initUsersAdminUi(){
 				confirmOverlay.classList.remove("hidden");
 				confirmModal.setAttribute("aria-hidden", "false");
 				confirmOverlay.setAttribute("aria-hidden", "false");
+				window._onModalOpen?.();
 			};
 
 			const close = () => {
@@ -774,6 +770,7 @@ function initUsersAdminUi(){
 				confirmOverlay.classList.add("hidden");
 				confirmModal.setAttribute("aria-hidden", "true");
 				confirmOverlay.setAttribute("aria-hidden", "true");
+				window._onModalClose?.();
 			};
 
 			const cleanup = () => {
@@ -943,6 +940,7 @@ function initCarsAdminUi(){
 		overlay.classList.remove("hidden");
 		modal.setAttribute("aria-hidden", "false");
 		overlay.setAttribute("aria-hidden", "false");
+		window._onModalOpen?.();
 	};
 	const closeModal = () => {
 		modal.classList.add("hidden");
@@ -950,6 +948,7 @@ function initCarsAdminUi(){
 		modal.setAttribute("aria-hidden", "true");
 		overlay.setAttribute("aria-hidden", "true");
 		setModalStatus("");
+		window._onModalClose?.();
 	};
 
 	const fill = (c) => {
@@ -1006,12 +1005,14 @@ function initCarsAdminUi(){
 				cOverlay.classList.remove("hidden");
 				cModal.setAttribute("aria-hidden", "false");
 				cOverlay.setAttribute("aria-hidden", "false");
+				window._onModalOpen?.();
 			};
 			const close = () => {
 				cModal.classList.add("hidden");
 				cOverlay.classList.add("hidden");
 				cModal.setAttribute("aria-hidden", "true");
 				cOverlay.setAttribute("aria-hidden", "true");
+				window._onModalClose?.();
 			};
 			const cleanup = () => {
 				cYes.onclick = null;
