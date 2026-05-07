@@ -1,10 +1,10 @@
 // Cache-bust ESM modules on deploys (Safari/iOS is especially aggressive here).
-const __v = "20260504_3";
-import { endpoint, postRequest } from "./js/api.js?v=20260504_3";
-import { get } from "./js/dom.js?v=20260504_3";
-import { initAuth } from "./js/auth.js?v=20260504_3";
-import { initCarSelector } from "./js/carSelector.js?v=20260504_3";
-import { initLocationsAdminUi } from "./js/admin/locations.js?v=20260504_3";
+const __v = "20260507_1";
+import { endpoint, postRequest } from "./js/api.js?v=20260507_1";
+import { get } from "./js/dom.js?v=20260507_1";
+import { initAuth } from "./js/auth.js?v=20260507_1";
+import { initCarSelector } from "./js/carSelector.js?v=20260507_1";
+import { initLocationsAdminUi } from "./js/admin/locations.js?v=20260507_1";
 
 // Always keep Help navigation working, even if legacy code below throws.
 // No internal links inside the button: just a hard navigation to /help.
@@ -132,7 +132,6 @@ const date = document.getElementById("date");
 const number = document.getElementById("number");
 const pretrip_button = document.getElementById("pretrip_button");
 const posttrip_button = document.getElementById("posttrip_button");
-const photoInput = document.getElementById("photoInput");
 const photoChoice = document.getElementById("photoChoice");
 const getLocation_button = document.getElementById("getLocation_button");
 const oilValue = document.getElementById("oilValue");
@@ -141,36 +140,13 @@ const wheelokInstruction = document.getElementById("wheelokInstruction");
 const wheelokSwitch = document.getElementById("wheelokSwitch");
 const damagedwheelSwitch = document.getElementById("damagedwheelSwitch");
 
-const Photo_button = document.getElementById("Photo_button");
-const video_ = document.getElementById("video_");
-const canvas_ = document.getElementById("canvas_");
-const snap_ = document.getElementById("snap_");
-const retry_ = document.getElementById("retry_");
-
-const mileagePhoto_button = document.getElementById("mileagePhoto_button");
-const mileageUpload_button = document.getElementById("mileageUpload_button");
-const video_mileage = document.getElementById("video_mileage");
-const canvas_mileage = document.getElementById("canvas_mileage");
-const snap_mileage = document.getElementById("snap_mileage");
-const retry_mileage = document.getElementById("retry_mileage");
-
 const photodayBlock = document.getElementById("photodayBlock");
 
 const wheelokPhoto_button = document.getElementById("wheelokPhoto_button");
-const wheelokUpload_button = document.getElementById("wheelokUpload_button");
 const photoChoice_wheelok = document.getElementById("photoChoice_wheelok");
-const video_wheelok = document.getElementById("video_wheelok");
-const canvas_wheelok = document.getElementById("canvas_wheelok");
-const snap_wheelok = document.getElementById("snap_wheelok");
-const retry_wheelok = document.getElementById("retry_wheelok");
 
 const damagedwheelPhoto_button = document.getElementById("damagedwheelPhoto_button");
-const damagedwheelUpload_button = document.getElementById("damagedwheelUpload_button");
 const photoChoice_damagedwheel = document.getElementById("photoChoice_damagedwheel");
-const video_damagedwheel = document.getElementById("video_damagedwheel");
-const canvas_damagedwheel = document.getElementById("canvas_damagedwheel");
-const snap_damagedwheel = document.getElementById("snap_damagedwheel");
-const retry_damagedwheel = document.getElementById("retry_damagedwheel");
 
 const photoChoice_mileage = document.getElementById("photoChoice_mileage");
 const panelErrorSwitch = document.getElementById("panelErrorSwitch");
@@ -342,7 +318,6 @@ var access_key = null;
 var user_name = "USERNAME";
 var user_surname;
 
-var photoAction = () => {};
 
 let state = {
 	driver: user?.id,
@@ -419,6 +394,71 @@ addPhotoBlock(get('prePhoto_6'), 'Фото салона с открытой пр
 addPhotoBlock(get('prePhoto_7'), 'Фото салона с открытой правой задней двери', (photoData) => { checkUpPreData.photo_ibr = photoData; });
 addPhotoBlock(get('prePhoto_8'), 'Фото салона с открытой левой задней двери', (photoData) => { checkUpPreData.photo_ibl = photoData; });
 
+// Show a retake-able thumbnail next to a wheel photo choice container.
+function showWheelThumb(choiceEl, photoData, onClear) {
+	const existing = choiceEl.parentElement?.querySelector('.wheelThumb');
+	if (existing) existing.remove();
+
+	choiceEl.classList.add('hidden');
+
+	const wrap = document.createElement('div');
+	wrap.className = 'photoThumbs wheelThumb';
+
+	const item = document.createElement('div');
+	item.className = 'photoThumb';
+
+	const img = document.createElement('img');
+	img.className = 'photoThumb__img';
+	img.src = photoData;
+	img.alt = '';
+
+	const btn = document.createElement('button');
+	btn.type = 'button';
+	btn.className = 'photoThumb__remove';
+	btn.innerText = '×';
+	btn.onclick = () => {
+		wrap.remove();
+		choiceEl.classList.remove('hidden');
+		if (onClear) onClear();
+	};
+
+	item.appendChild(img);
+	item.appendChild(btn);
+	wrap.appendChild(item);
+	choiceEl.after(wrap);
+}
+
+// Opens the native system camera (or file picker on desktop) and returns a
+// resized JPEG data URL via callback. max 1920px on the longest side.
+function capturePhotoFromFile(callback) {
+	const input = document.createElement('input');
+	input.type = 'file';
+	input.accept = 'image/*';
+	input.capture = 'environment';
+	input.onchange = () => {
+		const file = input.files?.[0];
+		if (!file) return;
+		const url = URL.createObjectURL(file);
+		const img = new Image();
+		img.onload = () => {
+			URL.revokeObjectURL(url);
+			const MAX = 1920;
+			let w = img.naturalWidth, h = img.naturalHeight;
+			if (w > MAX || h > MAX) {
+				if (w >= h) { h = Math.round(h * MAX / w); w = MAX; }
+				else        { w = Math.round(w * MAX / h); h = MAX; }
+			}
+			const c = document.createElement('canvas');
+			c.width = w; c.height = h;
+			c.getContext('2d').drawImage(img, 0, 0, w, h);
+			callback(c.toDataURL('image/jpeg', 0.88));
+		};
+		img.onerror = () => URL.revokeObjectURL(url);
+		img.src = url;
+	};
+	input.click();
+}
+
 function addPhotoBlock(parent, info, action){
     var clone = photoBlockTemplate.cloneNode(true);
 
@@ -433,38 +473,8 @@ function addPhotoBlock(parent, info, action){
 	// Thumbnails container (keeps UI compact; does not affect business logic)
 	const thumbs = document.createElement('div');
 	thumbs.className = 'photoThumbs';
-	// We'll insert thumbs right after the action buttons for consistent layout.
 	const photoChoiceRoot = clone.querySelector('#photoChoice_photoBlockTemplate');
 	photoChoiceRoot?.after?.(thumbs);
-
-	// Capture container (video/canvas + buttons) - hidden unless actively capturing
-	const video = clone.querySelector('#video_photoBlockTemplate');
-	const canvas = clone.querySelector('#canvas_photoBlockTemplate');
-	const snap = clone.querySelector('#snap_photoBlockTemplate');
-	const retry = clone.querySelector('#retry_photoBlockTemplate');
-
-	const capture = document.createElement('div');
-	capture.className = 'photoCapture hidden';
-
-	// Normalize preview element sizing (template has narrow canvas width inline)
-	if (video) video.style.width = '100%';
-	if (canvas) canvas.style.width = '100%';
-
-	// Move preview elements into capture container
-	const previewHost = video?.parentElement;
-	if (previewHost) {
-		capture.appendChild(video);
-		capture.appendChild(canvas);
-		capture.appendChild(snap);
-		capture.appendChild(retry);
-		previewHost.replaceWith(capture);
-	}
-
-	let stream = null;
-	const stopStream = () => {
-		try { stream?.getTracks?.().forEach(t => t.stop()); } catch { }
-		stream = null;
-	};
 
 	const setThumb = (photoData) => {
 		thumbs.innerHTML = '';
@@ -502,88 +512,11 @@ function addPhotoBlock(parent, info, action){
 	};
 
 	clone.querySelector('#photoBlockTemplate_photo_button').onclick = () => {
-		if (!video || !canvas || !snap || !retry) return;
-		try {
-			stopStream();
-			navigator.mediaDevices.getUserMedia({video: { facingMode: "environment" }}).then((currentStream) =>{
-				stream = currentStream;
-				video.srcObject = currentStream;
-				video.play();
-			});
-		} catch (err) {
-			console.error("Camera access error:", err);
-		}
-
-		capture.classList.remove('hidden');
-		video.classList.remove('hidden');
-		canvas.classList.add('hidden');
-
-		snap.classList.remove('hidden');
-		retry.classList.add('hidden');
-
-		retry.onclick = () => {
-			video.classList.remove("hidden");
-			canvas.classList.add("hidden");
-			snap.classList.remove("hidden");
-			retry.classList.add("hidden");
-		}
-
-		snap.onclick = () => {
-
-			canvas.width = video.videoWidth;
-			canvas.height = video.videoHeight;
-		
-			const ctx = canvas.getContext("2d");
-		
-			ctx.drawImage(video, 0, 0);
-		
-			const photo = canvas.toDataURL("image/jpeg", 0.8);
-		
-			if(action != null) action(photo);
+		capturePhotoFromFile((photo) => {
+			if (action) action(photo);
 			setThumb(photo);
-
-			//console.log(photo);
-
-			// Hide capture UI; thumbnail is shown below buttons.
-			capture.classList.add("hidden");
-			video.classList.add("hidden");
-			canvas.classList.add("hidden");
-			snap.classList.add("hidden");
-			retry.classList.add("hidden");
-			stopStream();
-		};
-	}
-
-	clone.querySelector('#photoBlockTemplate_upload_button').onclick = () => {
-		photoInput.click();
-
-		photoAction = (url) => {
-			if (!canvas) return;
-			const ctx = canvas.getContext("2d");
-
-			const img = new Image();
-			img.src = url;
-
-			img.onload = () => {
-				canvas.width = img.width;
-				canvas.height = img.height;
-				ctx.drawImage(img, 0, 0);
-				URL.revokeObjectURL(url);
-
-				const photo = canvas.toDataURL("image/jpeg", 0.8);
-				if(action != null) action(photo);
-				setThumb(photo);
-
-				capture.classList.add("hidden");
-				video?.classList?.add?.("hidden");
-				canvas?.classList?.add?.("hidden");
-				snap?.classList?.add?.("hidden");
-				retry?.classList?.add?.("hidden");
-				stopStream();
-			};
-			img.onerror = () => URL.revokeObjectURL(url);
-		};
-	}
+		});
+	};
 
 	parent.appendChild(clone);
 }
@@ -637,101 +570,21 @@ if(photodayBlock){
 }
 
 damagedwheelPhoto_button.onclick = () => {
-	var video = video_damagedwheel;
-	var photoChoice = photoChoice_damagedwheel;
-	var snap = snap_damagedwheel;
-	var canvas = canvas_damagedwheel;
-	var retry = retry_damagedwheel;
-
-	let dmgStream = null;
-	const stopDmgStream = () => {
-		try { dmgStream?.getTracks?.().forEach(t => t.stop()); } catch {}
-		dmgStream = null;
-	};
-
-	try {
-		navigator.mediaDevices.getUserMedia({video: { facingMode: "environment" }}).then((currentStream) => {
-			dmgStream = currentStream;
-			video.srcObject = currentStream;
-			video.play();
-		});
-	} catch (err) {
-		console.error("Camera access error:", err);
-	}
-
-	photoChoice.classList.add('hidden');
-	video.classList.remove('hidden');
-	snap.classList.remove('hidden');
-
-	retry.onclick = () => {
-		video.classList.remove("hidden");
-		canvas.classList.add("hidden");
-		snap.classList.remove("hidden");
-		retry.classList.add("hidden");
-	};
-
-	snap.onclick = () => {
-		canvas.width = video.videoWidth;
-		canvas.height = video.videoHeight;
-		const ctx = canvas.getContext("2d");
-		ctx.drawImage(video, 0, 0);
-		const photo = canvas.toDataURL("image/jpeg", 0.8);
+	capturePhotoFromFile((photo) => {
 		checkUpPreData.wheel_damaged_photo = photo;
-		stopDmgStream();
-		video.classList.add("hidden");
-		canvas.classList.remove("hidden");
-		snap.classList.add("hidden");
-		retry.classList.remove("hidden");
-	};
+		showWheelThumb(photoChoice_damagedwheel, photo, () => {
+			checkUpPreData.wheel_damaged_photo = null;
+		});
+	});
 }
 
 wheelokPhoto_button.onclick = () => {
-	var video = video_wheelok;
-	var photoChoice = photoChoice_wheelok;
-	var snap = snap_wheelok;
-	var canvas = canvas_wheelok;
-	var retry = retry_wheelok;
-
-	let wokStream = null;
-	const stopWokStream = () => {
-		try { wokStream?.getTracks?.().forEach(t => t.stop()); } catch {}
-		wokStream = null;
-	};
-
-	try {
-		navigator.mediaDevices.getUserMedia({video: { facingMode: "environment" }}).then((currentStream) => {
-			wokStream = currentStream;
-			video.srcObject = currentStream;
-			video.play();
-		});
-	} catch (err) {
-		console.error("Camera access error:", err);
-	}
-
-	photoChoice.classList.add('hidden');
-	video.classList.remove('hidden');
-	snap.classList.remove('hidden');
-
-	retry.onclick = () => {
-		video.classList.remove("hidden");
-		canvas.classList.add("hidden");
-		snap.classList.remove("hidden");
-		retry.classList.add("hidden");
-	};
-
-	snap.onclick = () => {
-		canvas.width = video.videoWidth;
-		canvas.height = video.videoHeight;
-		const ctx = canvas.getContext("2d");
-		ctx.drawImage(video, 0, 0);
-		const photo = canvas.toDataURL("image/jpeg", 0.8);
+	capturePhotoFromFile((photo) => {
 		checkUpPreData.random_wheel_photo = photo;
-		stopWokStream();
-		video.classList.add("hidden");
-		canvas.classList.remove("hidden");
-		snap.classList.add("hidden");
-		retry.classList.remove("hidden");
-	};
+		showWheelThumb(photoChoice_wheelok, photo, () => {
+			checkUpPreData.random_wheel_photo = null;
+		});
+	});
 }
 
 mileageInput.addEventListener('input', (event) => {
@@ -1249,54 +1102,6 @@ function send() {
 
 const msg = document.getElementById("msg");
 
-const camInput = document.getElementById("cameraInput");
-
-camInput.onchange = () => {};
-
-photoInput.onchange = () => {
-	const file = photoInput.files[0];
-	if (!file) return;
-
-	const url = URL.createObjectURL(file);
-
-	try {
-		photoAction(url);
-	} finally {
-		try { photoInput.value = ""; } catch { }
-	}
-	// const img = document.createElement("img");
-	// img.src = url;
-	// img.style.width = "100%";
-	// document.body.appendChild(img);
-  };
-
-retry.onclick = () => {
-	video.classList.remove("hidden");
-	canvas.classList.add("hidden");
-	snap.classList.remove("hidden");
-	retry.classList.add("hidden");
-	toGeo.classList.add("inactive")
-  };
-
-snap.onclick = () => {
-
-  canvas.width = video.videoWidth;
-  canvas.height = video.videoHeight;
-
-  const ctx = canvas.getContext("2d");
-
-  ctx.drawImage(video, 0, 0);
-
-  const photo = canvas.toDataURL("image/jpeg", 0.8);
-
-  console.log(photo);
-
-  video.classList.add("hidden");
-  canvas.classList.remove("hidden");
-  snap.classList.add("hidden");
-  retry.classList.remove("hidden");
-  toGeo.classList.remove("inactive")
-};
 
 const oilSwitch = document.getElementById("oilSwitch");
 const oilText = document.getElementById("oilText");
@@ -1373,53 +1178,6 @@ if (wheelokSwitch) {
 	};
 }
 
-wheelokUpload_button.onclick = () => {
-	photoInput.click();
-
-	photoAction = (url) => {
-		photoChoice_wheelok.classList.add('hidden');
-
-		const canvas = document.getElementById("canvas_wheelok");
-		const ctx = canvas.getContext("2d");
-		canvas.classList.remove('hidden');
-
-		const img = new Image();
-		img.src = url;
-
-		img.onload = () => {
-			canvas.width = img.width;
-			canvas.height = img.height;
-			ctx.drawImage(img, 0, 0);
-			URL.revokeObjectURL(url);
-			checkUpPreData.random_wheel_photo = canvas.toDataURL("image/jpeg", 0.8);
-		};
-		img.onerror = () => URL.revokeObjectURL(url);
-	};
-}
-
-damagedwheelUpload_button.onclick = () => {
-	photoInput.click();
-
-	photoAction = (url) => {
-		photoChoice_damagedwheel.classList.add('hidden');
-
-		const canvas = document.getElementById("canvas_damagedwheel");
-		const ctx = canvas.getContext("2d");
-		canvas.classList.remove('hidden');
-
-		const img = new Image();
-		img.src = url;
-
-		img.onload = () => {
-			canvas.width = img.width;
-			canvas.height = img.height;
-			ctx.drawImage(img, 0, 0);
-			URL.revokeObjectURL(url);
-			checkUpPreData.wheel_damaged_photo = canvas.toDataURL("image/jpeg", 0.8);
-		};
-		img.onerror = () => URL.revokeObjectURL(url);
-	};
-}
 
 function setRandomWheel(value){
 	const el = get('wheelokInstruction');

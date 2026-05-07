@@ -5,6 +5,7 @@ public sealed class SessionStore
 {
     private readonly string _path;
     private readonly Dictionary<string, string> _sessions = new();
+    private readonly object _lock = new();
 
     public SessionStore(string path)
     {
@@ -44,22 +45,29 @@ public sealed class SessionStore
         var bytes = new byte[64];
         Random.Shared.NextBytes(bytes);
         var session = Convert.ToBase64String(bytes);
-        _sessions[session] = login;
-        Save();
+        lock (_lock)
+        {
+            _sessions[session] = login;
+            Save();
+        }
         return session;
     }
 
     public string? GetLogin(string? session)
     {
         if (string.IsNullOrWhiteSpace(session)) return null;
-        Load();
-        return _sessions.TryGetValue(session, out var login) ? login : null;
+        lock (_lock)
+        {
+            return _sessions.TryGetValue(session, out var login) ? login : null;
+        }
     }
 
     public void Remove(string? session)
     {
         if (string.IsNullOrWhiteSpace(session)) return;
-        if (_sessions.Remove(session)) Save();
+        lock (_lock)
+        {
+            if (_sessions.Remove(session)) Save();
+        }
     }
 }
-

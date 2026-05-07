@@ -4,13 +4,13 @@
 <head>
 	<meta charset="UTF-8" name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 	<title>Осмотр авто</title>
-	<link rel="stylesheet" href="/driver-app/styles.css?v=20260504_3">
-	<link rel="modulepreload" href="/driver-app/app.js?v=20260504_3">
-	<link rel="modulepreload" href="/driver-app/js/api.js?v=20260504_3">
-	<link rel="modulepreload" href="/driver-app/js/dom.js?v=20260504_3">
-	<link rel="modulepreload" href="/driver-app/js/auth.js?v=20260504_3">
-	<link rel="modulepreload" href="/driver-app/js/carSelector.js?v=20260504_3">
-	<link rel="modulepreload" href="/driver-app/js/admin/locations.js?v=20260504_3">
+	<link rel="stylesheet" href="/driver-app/styles.css?v=20260507_1">
+	<link rel="modulepreload" href="/driver-app/app.js?v=20260507_1">
+	<link rel="modulepreload" href="/driver-app/js/api.js?v=20260507_1">
+	<link rel="modulepreload" href="/driver-app/js/dom.js?v=20260507_1">
+	<link rel="modulepreload" href="/driver-app/js/auth.js?v=20260507_1">
+	<link rel="modulepreload" href="/driver-app/js/carSelector.js?v=20260507_1">
+	<link rel="modulepreload" href="/driver-app/js/admin/locations.js?v=20260507_1">
 	<script>
 		// Optional override for API base URL (for prod/staging split).
 		// If empty/undefined, client will use current origin.
@@ -72,7 +72,6 @@
 	</div>
 	
 	<!-- <div id="number" style="position: absolute; margin-top: 38px; left: 0; width: 100%; border-style: none; border-width: 1px;"></div> -->
-	<input id="photoInput" type="file" accept="image/*" hidden>
 	
     <!-- выбор авто -->
 	<div id="page-car" class="page active page--car">
@@ -491,15 +490,8 @@
 
 				<div id="photoChoice_damagedwheel" style="margin-top: 20px;" class="photoChoice hidden">
 					<button id="damagedwheelPhoto_button" class="def_button" style="margin-right: 20px;">Сделать фото</button>
-					<button id="damagedwheelUpload_button" class="def_button" style="margin-right: 20px;">Загрузить фото из галереи...</button>
 				</div>
-
-				<div style="margin-top: 25px;">
-					<video id="video_damagedwheel" autoplay playsinline class="hidden" style="width: 95%;"></video>
-					<canvas id="canvas_damagedwheel" class="hidden" style="display: fixed; width: 95%;"></canvas>
-					<button id="snap_damagedwheel" class="def_button hidden">Сфоткать</button>
-					<button id="retry_damagedwheel" class="def_button hidden">Ещё раз</button>
-				</div>
+				<canvas id="canvas_damagedwheel" class="hidden" style="display:none;"></canvas>
 
 				<div id="wheelok" style="font-family: Roboto; margin-top: 35px;">
 					<div style="display: flex; margin-top: 0px; font-family: Roboto;">Колёса проверены и технически исправны</div>
@@ -511,15 +503,8 @@
 
 				<div id="photoChoice_wheelok" style="margin-top: 20px;" class="photoChoice hidden">
 					<button id="wheelokPhoto_button" class="def_button" style="margin-right: 20px;">Сделать фото</button>
-					<button id="wheelokUpload_button" class="def_button" style="margin-right: 20px;">Загрузить фото из галереи...</button>
 				</div>
-
-				<div style="margin-top: 25px;">
-					<video id="video_wheelok" autoplay playsinline class="hidden" style="width: 95%;"></video>
-					<canvas id="canvas_wheelok" class="hidden" style="display: fixed; width: 95%;"></canvas>
-					<button id="snap_wheelok" class="def_button hidden">Сфоткать</button>
-					<button id="retry_wheelok" class="def_button hidden">Ещё раз</button>
-				</div>
+				<canvas id="canvas_wheelok" class="hidden" style="display:none;"></canvas>
 
 			</div>
 
@@ -732,14 +717,6 @@
 		<div id="info_photoBlockTemplate" style="display: none;">Описание</div>
 		<div id="photoChoice_photoBlockTemplate" class="photoChoice">
 			<button id="photoBlockTemplate_photo_button" class="def_button" style="margin-right: 20px;">Сделать фото</button>
-			<button id="photoBlockTemplate_upload_button" class=" def_button" style="margin-right: 20px;">Загрузить фото из галереи...</button>
-		</div>
-
-		<div style="margin-top: 25px;">
-			<video id="video_photoBlockTemplate" autoplay playsinline class="hidden" style="width: 95%;"></video>
-			<canvas id="canvas_photoBlockTemplate" class="hidden" style="display: fixed; width: 100px;"></canvas>
-			<button id="snap_photoBlockTemplate" class="def_button hidden">Сфоткать</button>
-			<button id="retry_photoBlockTemplate" class="def_button hidden">Ещё раз</button>
 		</div>
 	</div>
 
@@ -763,7 +740,7 @@
 	</div>
 
 	<script defer src="https://telegram.org/js/telegram-web-app.js"></script>
-	<script type="module" src="/driver-app/app.js?v=20260504_3"></script>
+	<script type="module" src="/driver-app/app.js?v=20260507_1"></script>
 </body>
 
 </html>
