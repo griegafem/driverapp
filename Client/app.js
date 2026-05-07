@@ -1,10 +1,10 @@
 // Cache-bust ESM modules on deploys (Safari/iOS is especially aggressive here).
-const __v = "20260507_8";
-import { endpoint, postRequest } from "./js/api.js?v=20260507_8";
-import { get } from "./js/dom.js?v=20260507_8";
-import { initAuth } from "./js/auth.js?v=20260507_8";
-import { initCarSelector } from "./js/carSelector.js?v=20260507_8";
-import { initLocationsAdminUi } from "./js/admin/locations.js?v=20260507_8";
+const __v = "20260507_9";
+import { endpoint, postRequest } from "./js/api.js?v=20260507_9";
+import { get } from "./js/dom.js?v=20260507_9";
+import { initAuth } from "./js/auth.js?v=20260507_9";
+import { initCarSelector } from "./js/carSelector.js?v=20260507_9";
+import { initLocationsAdminUi } from "./js/admin/locations.js?v=20260507_9";
 
 // Always keep Help navigation working, even if legacy code below throws.
 // No internal links inside the button: just a hard navigation to /help.

@@ -104,7 +104,9 @@ body{
 #sidebarOverlay{
   position: fixed;
   inset: 0;
-  background: rgba(0,0,0,0.30);
+  background: rgba(15,23,42,0.25);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
   z-index: 140;
   opacity: 1;
   transition: opacity 250ms ease;
