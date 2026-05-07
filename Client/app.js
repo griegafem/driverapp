@@ -1,10 +1,10 @@
 // Cache-bust ESM modules on deploys (Safari/iOS is especially aggressive here).
-const __v = "20260507_4";
-import { endpoint, postRequest } from "./js/api.js?v=20260507_4";
-import { get } from "./js/dom.js?v=20260507_4";
-import { initAuth } from "./js/auth.js?v=20260507_4";
-import { initCarSelector } from "./js/carSelector.js?v=20260507_4";
-import { initLocationsAdminUi } from "./js/admin/locations.js?v=20260507_4";
+const __v = "20260507_5";
+import { endpoint, postRequest } from "./js/api.js?v=20260507_5";
+import { get } from "./js/dom.js?v=20260507_5";
+import { initAuth } from "./js/auth.js?v=20260507_5";
+import { initCarSelector } from "./js/carSelector.js?v=20260507_5";
+import { initLocationsAdminUi } from "./js/admin/locations.js?v=20260507_5";
 
 // Always keep Help navigation working, even if legacy code below throws.
 // No internal links inside the button: just a hard navigation to /help.
@@ -84,8 +84,6 @@ function openSidebar(){
   sidebarOverlay?.classList?.remove?.("hidden");
   sidebar?.setAttribute?.("aria-hidden", "false");
   sidebarOverlay?.setAttribute?.("aria-hidden", "false");
-  // When sidebar is open, hide the burger button (close via X).
-  sidebarToggle?.classList?.add?.("hidden");
 }
 
 function closeSidebar(){
@@ -93,10 +91,11 @@ function closeSidebar(){
   sidebarOverlay?.classList?.add?.("hidden");
   sidebar?.setAttribute?.("aria-hidden", "true");
   sidebarOverlay?.setAttribute?.("aria-hidden", "true");
-  sidebarToggle?.classList?.remove?.("hidden");
 }
 
-sidebarToggle?.addEventListener?.("click", openSidebar);
+sidebarToggle?.addEventListener?.("click", () => {
+  sidebar?.classList?.contains?.("hidden") ? openSidebar() : closeSidebar();
+});
 sidebarClose?.addEventListener?.("click", closeSidebar);
 sidebarOverlay?.addEventListener?.("click", closeSidebar);
 
@@ -1131,16 +1130,17 @@ panelErrorSwitch.onchange = () => {
 
 const slider = document.getElementById("slider_oil");
 
+function sliderGradient(el, pct) {
+	const g = Math.min(255, Math.round(510 * pct / 100));
+	const r = Math.min(255, 510 - g);
+	const fill = `rgb(${r},${g},0)`;
+	el.style.background = `linear-gradient(to right, ${fill} 0%, ${fill} ${pct}%, #e2e8f0 ${pct}%, #e2e8f0 100%)`;
+}
+
 function updateSlider(){
-	const value = slider.value;
-
-	var g = 510 * (value / 100);
-	var r = 510 - g;
-
-	slider.style.background = 'rgb(' + r + ', ' + g + ', 0)';
-
-	oilValue.innerText = "Уровень масла: " + value + "%"
-
+	const value = parseInt(slider.value);
+	sliderGradient(slider, value);
+	oilValue.innerText = "Уровень масла: " + value + "%";
 	checkUpPreData.oil_level = value;
 }
 
@@ -1149,15 +1149,9 @@ slider.addEventListener("input", updateSlider);
 const slider_fuel = document.getElementById("slider_fuel");
 
 function updateSliderFuel(){
-	const value = slider_fuel.value;
-
-	var g = 510 * (value / 100);
-	var r = 510 - g;
-
-	slider_fuel.style.background = 'rgb(' + r + ', ' + g + ', 0)';
-
-	fuelValue.innerText = "Уровень топлива: " + value + "%"
-
+	const value = parseInt(slider_fuel.value);
+	sliderGradient(slider_fuel, value);
+	fuelValue.innerText = "Уровень топлива: " + value + "%";
 	checkUpPreData.fuel_level = value;
 }
 
@@ -1462,10 +1456,10 @@ get('quickExitBtn')?.addEventListener('click', () => {
 });
 
 get('slider_oil').value = 50;
-get('slider_oil').style.background = 'gray';
+sliderGradient(get('slider_oil'), 50);
 
 get('slider_fuel').value = 50;
-get('slider_fuel').style.background = 'gray';
+sliderGradient(get('slider_fuel'), 50);
 
 
 get('download_button').onclick = () => {

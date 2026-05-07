@@ -4,13 +4,13 @@
 <head>
 	<meta charset="UTF-8" name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 	<title>Осмотр авто</title>
-	<link rel="stylesheet" href="/driver-app/styles.css?v=20260507_4">
-	<link rel="modulepreload" href="/driver-app/app.js?v=20260507_4">
-	<link rel="modulepreload" href="/driver-app/js/api.js?v=20260507_4">
-	<link rel="modulepreload" href="/driver-app/js/dom.js?v=20260507_4">
-	<link rel="modulepreload" href="/driver-app/js/auth.js?v=20260507_4">
-	<link rel="modulepreload" href="/driver-app/js/carSelector.js?v=20260507_4">
-	<link rel="modulepreload" href="/driver-app/js/admin/locations.js?v=20260507_4">
+	<link rel="stylesheet" href="/driver-app/styles.css?v=20260507_5">
+	<link rel="modulepreload" href="/driver-app/app.js?v=20260507_5">
+	<link rel="modulepreload" href="/driver-app/js/api.js?v=20260507_5">
+	<link rel="modulepreload" href="/driver-app/js/dom.js?v=20260507_5">
+	<link rel="modulepreload" href="/driver-app/js/auth.js?v=20260507_5">
+	<link rel="modulepreload" href="/driver-app/js/carSelector.js?v=20260507_5">
+	<link rel="modulepreload" href="/driver-app/js/admin/locations.js?v=20260507_5">
 	<script>
 		// Optional override for API base URL (for prod/staging split).
 		// If empty/undefined, client will use current origin.
@@ -34,11 +34,13 @@
 
 	
 	<div id="dashboardTop" class="hidden">
-		<button id="sidebarToggle" class="btn btn--ghost btn--sm" type="button" aria-label="Меню">☰</button>
 		<div class="topbar">
 			<div class="topbar__left">
-				<div id="date" class="meta meta--date">Дата: 12.12.12</div>
-				<div id="status" class="meta meta--user"></div>
+				<button id="sidebarToggle" class="btn btn--ghost btn--sm topbar__burger" type="button" aria-label="Меню">☰</button>
+				<div class="topbar__meta">
+					<div id="date" class="meta meta--date">Дата: 12.12.12</div>
+					<div id="status" class="meta meta--user"></div>
+				</div>
 			</div>
 			<div class="topbar__center">
 				<div class="topbar__title">Motorsharks</div>
@@ -56,14 +58,14 @@
 			<button id="sidebarClose" class="btn btn--ghost btn--sm" type="button">✕</button>
 		</div>
 		<nav class="sidebar__nav">
-			<button id="sidebarGoHome" class="sidebar__item" type="button">CheckUp</button>
-			<button id="sidebarGoReports" class="sidebar__item hidden" type="button">Отчёты</button>
-			<button id="sidebarGoCars" class="sidebar__item hidden" type="button">Автомобили</button>
-			<button id="sidebarGoUsers" class="sidebar__item hidden" type="button">Пользователи</button>
-			<button id="sidebarGoLocations" class="sidebar__item hidden" type="button">Локации</button>
+			<button id="sidebarGoHome" class="sidebar__item" type="button"><span class="sidebar__icon">🚗</span>CheckUp</button>
+			<button id="sidebarGoReports" class="sidebar__item hidden" type="button"><span class="sidebar__icon">📊</span>Отчёты</button>
+			<button id="sidebarGoCars" class="sidebar__item hidden" type="button"><span class="sidebar__icon">🚙</span>Автомобили</button>
+			<button id="sidebarGoUsers" class="sidebar__item hidden" type="button"><span class="sidebar__icon">👥</span>Пользователи</button>
+			<button id="sidebarGoLocations" class="sidebar__item hidden" type="button"><span class="sidebar__icon">📍</span>Локации</button>
 		</nav>
 		<div class="sidebar__footer">
-			<button id="sidebarLogout" class="btn btn--danger" type="button">Выйти из системы</button>
+			<button id="sidebarLogout" class="btn btn--danger" type="button">🚪 Выйти из системы</button>
 		</div>
 	</aside>
 	
@@ -510,12 +512,11 @@
 							<input type="checkbox" id="oilSwitch" class="msToggle__input">
 						</label>
 					</div>
-					<div id="oilRange" class="gsmSub range-container hidden">
+					<div id="oilRange" class="gsmSub hidden">
 						<div id="oilValue" class="gsmValue">Уровень масла: —</div>
-						<div class="rangeRow">
-							<span class="rangeMark">MIN</span>
-							<input type="range" id="slider_oil" min="0" max="100" value="0">
-							<span class="rangeMark">MAX</span>
+						<div class="sliderWrap">
+							<input type="range" id="slider_oil" min="0" max="100" value="0" class="prettyRange">
+							<div class="sliderMarks"><span>MIN</span><span>MAX</span></div>
 						</div>
 					</div>
 				</div>
@@ -609,10 +610,9 @@
 			<div class="inspCard">
 				<h3 class="inspCard__title">Уровень топлива</h3>
 				<div id="fuelValue" class="gsmValue">Уровень топлива: —</div>
-				<div class="rangeRow">
-					<span class="rangeMark">MIN</span>
-					<input type="range" id="slider_fuel" min="0" max="100" value="0">
-					<span class="rangeMark">MAX</span>
+				<div class="sliderWrap">
+					<input type="range" id="slider_fuel" min="0" max="100" value="0" class="prettyRange">
+					<div class="sliderMarks"><span>MIN</span><span>MAX</span></div>
 				</div>
 			</div>
 
@@ -844,7 +844,7 @@
 	</div>
 
 	<script defer src="https://telegram.org/js/telegram-web-app.js"></script>
-	<script type="module" src="/driver-app/app.js?v=20260507_4"></script>
+	<script type="module" src="/driver-app/app.js?v=20260507_5"></script>
 </body>
 
 </html>
