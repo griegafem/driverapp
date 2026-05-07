@@ -247,8 +247,11 @@ body{
   gap: 10px;
 }
 
-.topbar__burger{
-  flex-shrink: 0;
+#sidebarToggle{
+  position: fixed;
+  top: 10px;
+  left: 10px;
+  z-index: 9999;
   width: 38px;
   height: 38px;
   min-height: 38px;
@@ -265,19 +268,10 @@ body{
   transition: background 160ms ease, box-shadow 160ms ease;
 }
 
-.topbar__burger:hover{
+#sidebarToggle:hover{
   background: #f8fafc;
   box-shadow: 0 4px 14px rgba(15,23,42,0.10);
 }
-
-.topbar__meta{
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-/* keep old id selector harmless if referenced in JS */
-#sidebarToggle{ /* now .topbar__burger handles visual */ }
 
 /* Danger button */
 .btn--danger{
