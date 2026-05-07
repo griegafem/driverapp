@@ -1,10 +1,10 @@
 // Cache-bust ESM modules on deploys (Safari/iOS is especially aggressive here).
-const __v = "20260507_2";
-import { endpoint, postRequest } from "./js/api.js?v=20260507_2";
-import { get } from "./js/dom.js?v=20260507_2";
-import { initAuth } from "./js/auth.js?v=20260507_2";
-import { initCarSelector } from "./js/carSelector.js?v=20260507_2";
-import { initLocationsAdminUi } from "./js/admin/locations.js?v=20260507_2";
+const __v = "20260507_3";
+import { endpoint, postRequest } from "./js/api.js?v=20260507_3";
+import { get } from "./js/dom.js?v=20260507_3";
+import { initAuth } from "./js/auth.js?v=20260507_3";
+import { initCarSelector } from "./js/carSelector.js?v=20260507_3";
+import { initLocationsAdminUi } from "./js/admin/locations.js?v=20260507_3";
 
 // Always keep Help navigation working, even if legacy code below throws.
 // No internal links inside the button: just a hard navigation to /help.
@@ -536,11 +536,7 @@ function addPhotoBlock(parent, info, action){
 
 var triple_switch_iterator = 1;
 
-addTripleSwitch(get('wifi-container'), 'Wi‑Fi', 'wifi_switch')
-	?.querySelector?.('#switch-xl')
-	?.style?.setProperty?.("font-size", "11px");
-
-addTripleSwitch(get('vpn-container'), 'VPN сервис', 'vpn_switch');
+// wifi/vpn are now inline segmented HTML — no JS needed to build them
 
 function addTripleSwitch(parent, title, name, v1, v2, v3){
 	if(!parent) return null;
@@ -1274,17 +1270,38 @@ get('registrationSwitch')?.addEventListener('change', () => {
 });
 
 get('panelOkSwitchPre')?.addEventListener('change', () => {
-	const hasErrors = !get('panelOkSwitchPre').checked;
+	const checked = get('panelOkSwitchPre').checked;
+	get('photoBlock_panel_pre')?.classList.toggle('hidden', !checked);
+	get('panelErrorRow')?.classList.toggle('hidden', !checked);
+	if (!checked) {
+		const errSwitch = get('panelErrorSwitchPre');
+		if (errSwitch) errSwitch.checked = false;
+		get('panelOkRow')?.classList.remove('hidden');
+		checkUpPreData.dashboard_errors = null;
+	} else {
+		checkUpPreData.dashboard_errors = false;
+	}
+});
+
+get('panelErrorSwitchPre')?.addEventListener('change', () => {
+	const hasErrors = get('panelErrorSwitchPre').checked;
 	checkUpPreData.dashboard_errors = hasErrors;
-	get('photoBlock_panel_pre')?.classList.toggle('hidden', !hasErrors);
+	get('panelOkRow')?.classList.toggle('hidden', hasErrors);
 });
 
 get('osago_date')?.addEventListener('input', () => {
-	checkUpPreData.osago_date = get('osago_date').value;
+	const el = get('osago_date');
+	el.value = el.value.replace(/[^\d.]/g, '');
+	checkUpPreData.osago_date = el.value || null;
 });
 
 get('impossibleSwitchPre')?.addEventListener('change', () => {
 	get('salonPhotosPre')?.classList.toggle('hidden', get('impossibleSwitchPre').checked);
+});
+
+get('quickExitBtn')?.addEventListener('click', () => {
+	checkUpPreData.quick_exit = true;
+	get('sendPreCheckUp')?.click();
 });
 
 const ptScrollTop = () => window.scrollTo(0, 0);
@@ -1385,9 +1402,32 @@ get('sendPreCheckUp').onclick = async () => {
 	checkUpPreData.osago_date = get('osago_date')?.value || null;
 	checkUpPreData.date = new Date().toISOString();
 
-	const data = JSON.stringify({ data: checkUpPreData, session: session });
 	const btn = get('sendPreCheckUp');
 	const defaultLabel = "Завершить осмотр";
+
+	// Validation
+	const missing = [];
+	if (!checkUpPreData.geo) missing.push('Геолокация');
+	if (!checkUpPreData.mileage) missing.push('Пробег');
+	if (!checkUpPreData.body_condition || checkUpPreData.body_condition === 'NONE') missing.push('Состояние кузова');
+	if (!checkUpPreData.interior_condition || checkUpPreData.interior_condition === 'NONE') missing.push('Состояние салона');
+	if (!checkUpPreData.brakefluid_level || checkUpPreData.brakefluid_level === 'NONE') missing.push('Уровень тормозной жидкости');
+	if (!checkUpPreData.glass_condition || checkUpPreData.glass_condition === 'NONE') missing.push('Состояние стёкол');
+	if (!checkUpPreData.wifi || checkUpPreData.wifi === 'NONE') missing.push('Wi‑Fi');
+	if (!checkUpPreData.vpn || checkUpPreData.vpn === 'NONE') missing.push('VPN');
+
+	const errEl = get('preCheckupErrors');
+	if (missing.length > 0) {
+		if (errEl) {
+			errEl.textContent = '⚠ Не заполнено: ' + missing.join(', ');
+			errEl.classList.remove('hidden');
+			errEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+		}
+		return;
+	}
+	if (errEl) errEl.classList.add('hidden');
+
+	const data = JSON.stringify({ data: checkUpPreData, session: session });
 
 	btn.classList.add('inactive');
 	btn.innerText = "Отправка...";

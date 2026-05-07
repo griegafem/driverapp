@@ -4,13 +4,13 @@
 <head>
 	<meta charset="UTF-8" name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 	<title>Осмотр авто</title>
-	<link rel="stylesheet" href="/driver-app/styles.css?v=20260507_2">
-	<link rel="modulepreload" href="/driver-app/app.js?v=20260507_2">
-	<link rel="modulepreload" href="/driver-app/js/api.js?v=20260507_2">
-	<link rel="modulepreload" href="/driver-app/js/dom.js?v=20260507_2">
-	<link rel="modulepreload" href="/driver-app/js/auth.js?v=20260507_2">
-	<link rel="modulepreload" href="/driver-app/js/carSelector.js?v=20260507_2">
-	<link rel="modulepreload" href="/driver-app/js/admin/locations.js?v=20260507_2">
+	<link rel="stylesheet" href="/driver-app/styles.css?v=20260507_3">
+	<link rel="modulepreload" href="/driver-app/app.js?v=20260507_3">
+	<link rel="modulepreload" href="/driver-app/js/api.js?v=20260507_3">
+	<link rel="modulepreload" href="/driver-app/js/dom.js?v=20260507_3">
+	<link rel="modulepreload" href="/driver-app/js/auth.js?v=20260507_3">
+	<link rel="modulepreload" href="/driver-app/js/carSelector.js?v=20260507_3">
+	<link rel="modulepreload" href="/driver-app/js/admin/locations.js?v=20260507_3">
 	<script>
 		// Optional override for API base URL (for prod/staging split).
 		// If empty/undefined, client will use current origin.
@@ -417,13 +417,13 @@
 
 			<div class="inspCard">
 				<h3 class="inspCard__title">Состояние кузова</h3>
-				<div class="segmented" role="radiogroup" aria-label="Состояние кузова">
+				<div id="bodyCond" class="segmented" role="radiogroup" aria-label="Состояние кузова">
 					<input id="body_dirty"  name="body_condition" type="radio" value="dirty"  class="segmented__input" />
-					<label for="body_dirty"  class="segmented__btn">Грязный</label>
+					<label for="body_dirty"  class="segmented__btn segmented__btn--bad">Грязный</label>
 					<input id="body_dusty"  name="body_condition" type="radio" value="dusty"  class="segmented__input" />
-					<label for="body_dusty"  class="segmented__btn">Пыльный</label>
+					<label for="body_dusty"  class="segmented__btn segmented__btn--warn">Пыльный</label>
 					<input id="body_clean"  name="body_condition" type="radio" value="clean"  class="segmented__input" />
-					<label for="body_clean"  class="segmented__btn">Чистый</label>
+					<label for="body_clean"  class="segmented__btn segmented__btn--good">Чистый</label>
 					<input id="body_none"   name="body_condition" type="radio" value="NONE"   class="segmented__input" checked/>
 					<label for="body_none"   class="segmented__btn segmented__btn--none" aria-label="Не выбрано"></label>
 				</div>
@@ -478,13 +478,13 @@
 
 			<div class="inspCard">
 				<h3 class="inspCard__title">Состояние салона</h3>
-				<div class="segmented" role="radiogroup" aria-label="Состояние салона">
+				<div id="interiorCond" class="segmented" role="radiogroup" aria-label="Состояние салона">
 					<input id="int_damaged" name="interior_condition" type="radio" value="damaged"  class="segmented__input" />
-					<label for="int_damaged" class="segmented__btn">Повреждён</label>
+					<label for="int_damaged" class="segmented__btn segmented__btn--bad">Повреждён</label>
 					<input id="int_dirty"   name="interior_condition" type="radio" value="dirty"    class="segmented__input" />
-					<label for="int_dirty"   class="segmented__btn">Грязный</label>
+					<label for="int_dirty"   class="segmented__btn segmented__btn--warn">Грязный</label>
 					<input id="int_perfect" name="interior_condition" type="radio" value="perfect"  class="segmented__input" />
-					<label for="int_perfect" class="segmented__btn">Идеальный</label>
+					<label for="int_perfect" class="segmented__btn segmented__btn--good">Идеальный</label>
 					<input id="int_none"    name="interior_condition" type="radio" value="NONE"     class="segmented__input" checked/>
 					<label for="int_none"    class="segmented__btn segmented__btn--none" aria-label="Не выбрано"></label>
 				</div>
@@ -534,11 +534,11 @@
 					</div>
 					<div class="segmented" role="radiogroup" aria-label="Уровень тормозной жидкости">
 						<input id="brake_min"  name="brakefluid_switch" type="radio" value="MIN"  class="segmented__input" />
-						<label for="brake_min"  class="segmented__btn">MIN</label>
+						<label for="brake_min"  class="segmented__btn segmented__btn--warn">MIN</label>
 						<input id="brake_norm" name="brakefluid_switch" type="radio" value="NORM" class="segmented__input" />
 						<label for="brake_norm" class="segmented__btn">NORM</label>
 						<input id="brake_max"  name="brakefluid_switch" type="radio" value="MAX"  class="segmented__input" />
-						<label for="brake_max"  class="segmented__btn">MAX</label>
+						<label for="brake_max"  class="segmented__btn segmented__btn--good">MAX</label>
 						<input id="brake_none" name="brakefluid_switch" type="radio" value="NONE" class="segmented__input" checked/>
 						<label for="brake_none" class="segmented__btn segmented__btn--none" aria-label="Не выбрано"></label>
 					</div>
@@ -573,16 +573,18 @@
 
 				<div class="gsmItem" style="margin-top:12px;">
 					<div class="gsmLabel" style="margin-bottom:8px;">Состояние стёкол</div>
-					<div class="segmented" role="radiogroup" aria-label="Состояние стёкол">
+					<div id="glassCond" class="segmented" role="radiogroup" aria-label="Состояние стёкол">
 						<input id="glass_dirty" name="glass_condition" type="radio" value="dirty" class="segmented__input" />
-						<label for="glass_dirty" class="segmented__btn">Грязные</label>
+						<label for="glass_dirty" class="segmented__btn segmented__btn--warn">Грязные</label>
 						<input id="glass_clean" name="glass_condition" type="radio" value="clean" class="segmented__input" />
-						<label for="glass_clean" class="segmented__btn">Чистые</label>
+						<label for="glass_clean" class="segmented__btn segmented__btn--good">Чистые</label>
 						<input id="glass_none"  name="glass_condition" type="radio" value="NONE"  class="segmented__input" checked/>
 						<label for="glass_none"  class="segmented__btn segmented__btn--none" aria-label="Не выбрано"></label>
 					</div>
 				</div>
 			</div>
+
+			<button id="quickExitBtn" class="def_button def_button--warn">💣 Быстрый отчёт</button>
 
 			<button id="topt3" class="def_button">Продолжить →</button>
 
@@ -614,13 +616,19 @@
 
 			<div class="inspCard">
 				<h3 class="inspCard__title">Приборная панель</h3>
-				<div class="commonRow">
+				<div id="panelOkRow" class="commonRow">
 					<div class="commonRow__label">Ошибок на панели нет</div>
 					<label class="msToggle">
 						<input type="checkbox" id="panelOkSwitchPre" class="msToggle__input">
 					</label>
 				</div>
 				<div id="photoBlock_panel_pre" class="hidden" style="margin-top:8px;"></div>
+				<div id="panelErrorRow" class="commonRow hidden" style="margin-top:12px;">
+					<div class="commonRow__label" style="color:#ef4444;font-weight:700;">Ошибки на приборной панели есть</div>
+					<label class="msToggle">
+						<input type="checkbox" id="panelErrorSwitchPre" class="msToggle__input msToggle__input--red">
+					</label>
+				</div>
 			</div>
 
 			<div class="inspCard">
@@ -633,14 +641,38 @@
 				</div>
 				<div class="commonRow" style="margin-top:12px; flex-wrap:wrap; gap:8px;">
 					<div class="commonRow__label">ОСАГО действует до</div>
-					<input id="osago_date" type="text" class="def_input" placeholder="ДД.ММ.ГГГГ" style="max-width:160px; height:40px; font-size:15px;">
+					<input id="osago_date" type="text" class="def_input" placeholder="ДД.ММ.ГГГГ" inputmode="numeric" maxlength="10" style="max-width:160px; height:40px; font-size:15px;">
 				</div>
 			</div>
 
 			<div class="inspCard">
 				<h3 class="inspCard__title">Связь</h3>
-				<div id="wifi-container" class="commonRow"></div>
-				<div id="vpn-container" class="commonRow"></div>
+				<div id="wifi-container">
+					<div class="gsmLabel" style="margin-bottom:8px;">Wi‑Fi</div>
+					<div class="segmented" role="radiogroup" aria-label="Wi-Fi">
+						<input id="wifi_A" name="wifi_switch" type="radio" value="A" class="segmented__input"/>
+						<label for="wifi_A" class="segmented__btn segmented__btn--bad">Не работает</label>
+						<input id="wifi_B" name="wifi_switch" type="radio" value="B" class="segmented__input"/>
+						<label for="wifi_B" class="segmented__btn segmented__btn--warn" style="font-size:10px;">Не предусмотрен</label>
+						<input id="wifi_C" name="wifi_switch" type="radio" value="C" class="segmented__input"/>
+						<label for="wifi_C" class="segmented__btn segmented__btn--good">Работает</label>
+						<input id="wifi_none" name="wifi_switch" type="radio" value="NONE" class="segmented__input" checked/>
+						<label for="wifi_none" class="segmented__btn segmented__btn--none"></label>
+					</div>
+				</div>
+				<div id="vpn-container" style="margin-top:16px;">
+					<div class="gsmLabel" style="margin-bottom:8px;">VPN сервис</div>
+					<div class="segmented" role="radiogroup" aria-label="VPN">
+						<input id="vpn_A" name="vpn_switch" type="radio" value="A" class="segmented__input"/>
+						<label for="vpn_A" class="segmented__btn segmented__btn--bad">Не работает</label>
+						<input id="vpn_B" name="vpn_switch" type="radio" value="B" class="segmented__input"/>
+						<label for="vpn_B" class="segmented__btn segmented__btn--warn" style="font-size:10px;">Не предусмотрен</label>
+						<input id="vpn_C" name="vpn_switch" type="radio" value="C" class="segmented__input"/>
+						<label for="vpn_C" class="segmented__btn segmented__btn--good">Работает</label>
+						<input id="vpn_none" name="vpn_switch" type="radio" value="NONE" class="segmented__input" checked/>
+						<label for="vpn_none" class="segmented__btn segmented__btn--none"></label>
+					</div>
+				</div>
 			</div>
 
 			<div class="inspCard">
@@ -658,6 +690,7 @@
 			</div>
 
 			<div id="hi" style="font-family: Roboto; margin-top: 30px; text-align: center;"></div>
+			<div id="preCheckupErrors" class="hidden"></div>
 			<button id="sendPreCheckUp" class="def_button">Завершить осмотр</button>
 
 		</div>
@@ -809,7 +842,7 @@
 	</div>
 
 	<script defer src="https://telegram.org/js/telegram-web-app.js"></script>
-	<script type="module" src="/driver-app/app.js?v=20260507_2"></script>
+	<script type="module" src="/driver-app/app.js?v=20260507_3"></script>
 </body>
 
 </html>
