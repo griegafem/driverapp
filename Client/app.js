@@ -1160,16 +1160,29 @@ initCarsAdminUi();
   const routeModalCarList   = document.getElementById("routeModalCarList");
   const routeModalCarChosen = document.getElementById("routeModalCarChosen");
 
-  let _routeModalSelectedCar = null; // { plateNumber, brand, model }
+  let _routeModalSelectedCar = null; // { plateNumber, brand, model, current_location }
 
   // Поиск машины внутри модалки
   let _allCarsCache = [];
   _carsPromise.then(data => { _allCarsCache = Array.isArray(data?.cars) ? data.cars : []; });
 
+  // Набор госномеров машин, которые сейчас в активном маршруте
+  let _activePlatesSet = new Set();
+
+  async function refreshActivePlates() {
+    try {
+      const r = await fetch(endpoint + "/api/routes/active-cars?session=" + encodeURIComponent(s()), { credentials: "same-origin", cache: "no-store" });
+      const data = await r.json();
+      _activePlatesSet = new Set((data?.active_car_numbers || []).map(n => n.toUpperCase()));
+    } catch { _activePlatesSet = new Set(); }
+  }
+
   function routeModalRenderList(query) {
     if (!routeModalCarList) return;
     const q = (query || "").toLowerCase().trim();
-    const matches = q.length === 0 ? _allCarsCache : _allCarsCache.filter(c =>
+    // Исключаем машины, которые уже в пути
+    const available = _allCarsCache.filter(c => !_activePlatesSet.has((c.plateNumber || "").toUpperCase()));
+    const matches = q.length === 0 ? available : available.filter(c =>
       (c.plateNumber || "").toLowerCase().includes(q) ||
       (c.brand || "").toLowerCase().includes(q) ||
       (c.model || "").toLowerCase().includes(q)
@@ -1179,19 +1192,22 @@ initCarsAdminUi();
     } else {
       routeModalCarList.innerHTML = matches.slice(0, 30).map(c => {
         const label = [c.brand, c.model, c.plateNumber].filter(Boolean).join(" ");
-        return `<div class="vehicleCard__searchItem" data-plate="${c.plateNumber}" data-brand="${c.brand||''}" data-model="${c.model||''}"
-          style="padding:10px 14px; cursor:pointer; font-size:14px; border-bottom:1px solid #f1f5f9;">${label}</div>`;
+        const locHint = c.current_location ? `<span style="font-size:11px;color:#0ea5e9;margin-left:6px;">📍${c.current_location}</span>` : "";
+        return `<div class="vehicleCard__searchItem" data-plate="${c.plateNumber}" data-brand="${c.brand||''}" data-model="${c.model||''}" data-loc="${c.current_location||''}"
+          style="padding:10px 14px; cursor:pointer; font-size:14px; border-bottom:1px solid #f1f5f9;">${label}${locHint}</div>`;
       }).join("");
       routeModalCarList.querySelectorAll(".vehicleCard__searchItem").forEach(el => {
         el.addEventListener("click", () => {
-          _routeModalSelectedCar = { plateNumber: el.dataset.plate, brand: el.dataset.brand, model: el.dataset.model };
+          _routeModalSelectedCar = { plateNumber: el.dataset.plate, brand: el.dataset.brand, model: el.dataset.model, current_location: el.dataset.loc || "" };
           const label = [_routeModalSelectedCar.brand, _routeModalSelectedCar.model, _routeModalSelectedCar.plateNumber].filter(Boolean).join(" ");
           routeModalCarSearch.value = label;
           routeModalCarChosen.textContent = "✓ " + label;
           routeModalCarChosen.classList.remove("hidden");
           routeModalCarList.classList.add("hidden");
-          // Авто-заполнение «Откуда» из последнего маршрута
-          if (_activeRouteLastLocation) routeFromSelect.value = _activeRouteLastLocation;
+          // Предзаполняем «Откуда» локацией выбранной машины
+          if (_routeModalSelectedCar.current_location && routeFromSelect) {
+            routeFromSelect.value = _routeModalSelectedCar.current_location;
+          }
         });
       });
     }
@@ -1211,29 +1227,22 @@ initCarsAdminUi();
     }
   });
 
-  function openRouteModal() {
+  async function openRouteModal() {
     if (!routeModal) return;
     routeModalStatus.textContent = "";
-    // Сбрасываем выбор машины, но пробуем подставить из CarSelector
+    // Обновляем список машин в пути перед открытием
+    await refreshActivePlates();
+    // Сбрасываем выбор машины
     _routeModalSelectedCar = null;
-    const preselected = window._carSelectorGetSelected?.();
-    if (preselected) {
-      _routeModalSelectedCar = { plateNumber: preselected.plateNumber, brand: preselected.brand, model: preselected.model };
-      const label = [preselected.brand, preselected.model, preselected.plateNumber].filter(Boolean).join(" ");
-      routeModalCarSearch.value = label;
-      routeModalCarChosen.textContent = "✓ " + label;
-      routeModalCarChosen.classList.remove("hidden");
-    } else {
-      routeModalCarSearch.value = "";
-      routeModalCarChosen?.classList.add("hidden");
-    }
+    routeModalCarSearch.value = "";
+    routeModalCarChosen?.classList.add("hidden");
     routeModalCarList?.classList.add("hidden");
     routeModal.classList.remove("hidden");
     routeModalOverlay.classList.remove("hidden");
     routeModal.setAttribute("aria-hidden", "false");
     routeModalOverlay.setAttribute("aria-hidden", "false");
     window._onModalOpen?.();
-    // Заполняем локации
+    // Заполняем дропдауны локаций
     getLocationsForDropdown().then(locs => {
       [routeFromSelect, routeToSelect].forEach(sel => {
         sel.innerHTML = '<option value="">— не указано —</option>';
@@ -1243,7 +1252,6 @@ initCarsAdminUi();
           sel.appendChild(o);
         });
       });
-      if (_activeRouteLastLocation) routeFromSelect.value = _activeRouteLastLocation;
     });
   }
 

@@ -240,21 +240,28 @@ app.MapGet("/api/cars", () =>
         }
 
         var cars = carDb.GetAll();
+        var lastLocsPublic = routeDb.GetCarLastLocations(); // route-based location priority
 
         var payload = JsonConvert.SerializeObject(new
         {
             status = "ok",
             cars = cars
                 .Where(c => !string.IsNullOrWhiteSpace(c.Number))
-                .Select(c => new
+                .Select(c =>
                 {
-                    plateNumber = Clean(c.Number)?.ToUpperInvariant(),
-                    brand = Clean(c.Brand),
-                    model = Clean(c.Model),
-                    vin = Clean(c.Vin),
-                    year = Clean(c.Year),
-                    department = Clean(c.Department),
-                    responsible = Clean(c.Responsible),
+                    lastLocsPublic.TryGetValue(c.Id.ToString(), out var routeLoc);
+                    var loc = !string.IsNullOrWhiteSpace(routeLoc) ? routeLoc : (c.CurrentLocation ?? "");
+                    return new
+                    {
+                        plateNumber = Clean(c.Number)?.ToUpperInvariant(),
+                        brand = Clean(c.Brand),
+                        model = Clean(c.Model),
+                        vin = Clean(c.Vin),
+                        year = Clean(c.Year),
+                        department = Clean(c.Department),
+                        responsible = Clean(c.Responsible),
+                        current_location = loc,
+                    };
                 })
                 .ToArray()
         });
@@ -276,18 +283,25 @@ app.MapGet("/api/admin/cars", (HttpRequest request) =>
     var admin = RequireAdmin(userDb, sessionStore, session);
     if (admin == null) return CarsForbidden();
 
-    var cars = carDb.GetAll()
-        .Select(c => new
+    var allCarsAdmin = carDb.GetAll();
+    var lastLocsAdmin = routeDb.GetCarLastLocations();
+    var cars = allCarsAdmin
+        .Select(c =>
         {
-            id = c.Id,
-            number = c.Number ?? "",
-            brand = c.Brand ?? "",
-            model = c.Model ?? "",
-            vin = c.Vin ?? "",
-            year = c.Year ?? "",
-            department = c.Department ?? "",
-            responsible = c.Responsible ?? "",
-            current_location = c.CurrentLocation ?? "",
+            lastLocsAdmin.TryGetValue(c.Id.ToString(), out var routeLoc);
+            var loc = !string.IsNullOrWhiteSpace(routeLoc) ? routeLoc : (c.CurrentLocation ?? "");
+            return new
+            {
+                id = c.Id,
+                number = c.Number ?? "",
+                brand = c.Brand ?? "",
+                model = c.Model ?? "",
+                vin = c.Vin ?? "",
+                year = c.Year ?? "",
+                department = c.Department ?? "",
+                responsible = c.Responsible ?? "",
+                current_location = loc,
+            };
         })
         .ToArray();
 
@@ -1017,8 +1031,10 @@ app.MapGet("/api/routes/active-cars", (HttpRequest request) =>
     var login = sessionStore.GetLogin(session);
     if (string.IsNullOrWhiteSpace(login)) return RoutesForbidden();
 
-    var ids = routeDb.GetActiveCarIds().ToArray();
-    return Results.Text(JsonConvert.SerializeObject(new { status = "ok", car_ids = ids }), "application/json; charset=utf-8");
+    var activeRoutes = routeDb.GetAll().Where(r => r.Status == "active").ToArray();
+    var car_ids = activeRoutes.Select(r => r.CarId).Distinct().ToArray();
+    var active_car_numbers = activeRoutes.Select(r => r.CarNumber.ToUpperInvariant()).Distinct().ToArray();
+    return Results.Text(JsonConvert.SerializeObject(new { status = "ok", car_ids, active_car_numbers }), "application/json; charset=utf-8");
 });
 
 // GET /api/routes/board — admin board: all cars with current location + active route
