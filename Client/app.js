@@ -1290,9 +1290,27 @@ initCarsAdminUi();
     if (_activeRoute) localStorage.setItem("activeRouteId", String(_activeRoute.id));
     nextPage("pretrip");
   });
-  document.getElementById("routeActivePostCheckup")?.addEventListener("click", () => {
-    if (_activeRoute) localStorage.setItem("activeRouteId", String(_activeRoute.id));
+  document.getElementById("routeActivePostCheckup")?.addEventListener("click", async () => {
+    if (_activeRoute) {
+      localStorage.setItem("activeRouteId", String(_activeRoute.id));
+      // Предзаполняем локацию назначения маршрута
+      localStorage.setItem("activeRouteToLocation", _activeRoute.to_location || "");
+    }
     nextPage("posttrip");
+    // Ждём отрисовки селекта и подставляем нужную локацию
+    try {
+      const sel = document.getElementById("location_post");
+      if (sel && _activeRoute?.to_location) {
+        const locs = await getLocationsForDropdown();
+        sel.innerHTML = '<option value="">— Выберите локацию —</option>';
+        locs.forEach(l => {
+          const opt = document.createElement("option");
+          opt.value = l.name; opt.textContent = l.name;
+          if (l.name === _activeRoute.to_location) opt.selected = true;
+          sel.appendChild(opt);
+        });
+      }
+    } catch {}
   });
 
   // ── Последняя известная локация машины (для автозаполнения «Откуда») ──
@@ -1872,6 +1890,15 @@ get('sendPostCheckUp').onclick = async () => {
 			return;
 		}
 		button.innerText = "Отчёт отправлен!";
+
+		// Auto-complete the active route if one was linked to this post-checkup
+		const linkedRouteId = localStorage.getItem("activeRouteId");
+		if (linkedRouteId) {
+			try { await apiCompleteRoute(Number(linkedRouteId)); } catch {}
+			localStorage.removeItem("activeRouteId");
+			localStorage.removeItem("activeRouteToLocation");
+		}
+
 		if (tg && tg.platform && tg.platform !== 'unknown') {
 			tg.showAlert("Осмотр успешно отправлен");
 			setTimeout(() => { tg.close(); }, 1500);
