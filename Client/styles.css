@@ -1333,6 +1333,15 @@ body{
   .btn--ghost:hover{ background: rgba(15,23,42,0.04); }
   .btn--ghost:active{ transform: translateY(1px) scale(0.99); }
 
+  .btn--warning{
+    background: #f59e0b;
+    color: #fff;
+    border-color: #f59e0b;
+    box-shadow: 0 4px 14px rgba(245,158,11,0.25);
+  }
+  .btn--warning:hover{ background: #d97706; border-color: #d97706; }
+  .btn--warning:active{ transform: translateY(1px) scale(0.99); }
+
   /* Keep legacy disabled behavior */
   .inactive{
     opacity: 0.55;

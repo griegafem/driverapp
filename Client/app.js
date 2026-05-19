@@ -1116,6 +1116,7 @@ initCarsAdminUi();
   async function apiCompleteRoute(id) {
     return postRequest(endpoint + "/api/routes/" + id + "/complete", JSON.stringify({ session: s() }));
   }
+  window._apiCompleteRoute = apiCompleteRoute;
   async function apiGetBoard() {
     const r = await fetch(endpoint + "/api/routes/board?session=" + encodeURIComponent(s()), { credentials: "same-origin", cache: "no-store" });
     return r.json();
@@ -1893,8 +1894,8 @@ get('sendPostCheckUp').onclick = async () => {
 
 		// Auto-complete the active route if one was linked to this post-checkup
 		const linkedRouteId = localStorage.getItem("activeRouteId");
-		if (linkedRouteId) {
-			try { await apiCompleteRoute(Number(linkedRouteId)); } catch {}
+		if (linkedRouteId && window._apiCompleteRoute) {
+			try { await window._apiCompleteRoute(Number(linkedRouteId)); } catch {}
 			localStorage.removeItem("activeRouteId");
 			localStorage.removeItem("activeRouteToLocation");
 		}

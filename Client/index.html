@@ -4,13 +4,13 @@
 <head>
 	<meta charset="UTF-8" name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 	<title>Осмотр авто</title>
-	<link rel="stylesheet" href="/driver-app/styles.css?v=20260507_15">
-	<link rel="modulepreload" href="/driver-app/app.js?v=20260507_15">
-	<link rel="modulepreload" href="/driver-app/js/api.js?v=20260507_15">
-	<link rel="modulepreload" href="/driver-app/js/dom.js?v=20260507_15">
-	<link rel="modulepreload" href="/driver-app/js/auth.js?v=20260507_15">
-	<link rel="modulepreload" href="/driver-app/js/carSelector.js?v=20260507_15">
-	<link rel="modulepreload" href="/driver-app/js/admin/locations.js?v=20260507_15">
+	<link rel="stylesheet" href="/driver-app/styles.css?v=20260507_16">
+	<link rel="modulepreload" href="/driver-app/app.js?v=20260507_16">
+	<link rel="modulepreload" href="/driver-app/js/api.js?v=20260507_16">
+	<link rel="modulepreload" href="/driver-app/js/dom.js?v=20260507_16">
+	<link rel="modulepreload" href="/driver-app/js/auth.js?v=20260507_16">
+	<link rel="modulepreload" href="/driver-app/js/carSelector.js?v=20260507_16">
+	<link rel="modulepreload" href="/driver-app/js/admin/locations.js?v=20260507_16">
 	<script>
 		// Optional override for API base URL (for prod/staging split).
 		// If empty/undefined, client will use current origin.
@@ -123,10 +123,10 @@
 					<div id="routeActiveInfo" style="font-size:14px; color:#475569; line-height:1.7; margin-bottom:14px;"></div>
 					<div style="display:flex; gap:8px; flex-wrap:wrap;">
 						<button id="routeActivePreCheckup" class="btn btn--primary" style="flex:1;">🔍 Чек-ап перед выездом</button>
-						<button id="routeActiveComplete" class="btn btn--ghost" style="flex:1;">✅ Завершить без осмотра</button>
+						<button id="routeActiveComplete" class="btn btn--warning" style="flex:1;">✅ Завершить без осмотра</button>
 					</div>
 					<div style="margin-top:8px;">
-						<button id="routeActivePostCheckup" class="btn btn--secondary" style="width:100%;">📍 Чек-ап по прибытии</button>
+						<button id="routeActivePostCheckup" class="btn btn--secondary" style="width:100%;">🏁 Завершить маршрут с осмотром</button>
 					</div>
 				</div>
 			</div>
@@ -925,7 +925,7 @@
 	</div>
 
 	<script defer src="https://telegram.org/js/telegram-web-app.js"></script>
-	<script type="module" src="/driver-app/app.js?v=20260507_15"></script>
+	<script type="module" src="/driver-app/app.js?v=20260507_16"></script>
 </body>
 
 </html>
