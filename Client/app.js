@@ -1,10 +1,10 @@
 // Cache-bust ESM modules on deploys (Safari/iOS is especially aggressive here).
-const __v = "20260507_12";
-import { endpoint, postRequest } from "./js/api.js?v=20260507_12";
-import { get } from "./js/dom.js?v=20260507_12";
-import { initAuth } from "./js/auth.js?v=20260507_12";
-import { initCarSelector } from "./js/carSelector.js?v=20260507_12";
-import { initLocationsAdminUi } from "./js/admin/locations.js?v=20260507_12";
+const __v = "20260507_13";
+import { endpoint, postRequest } from "./js/api.js?v=20260507_13";
+import { get } from "./js/dom.js?v=20260507_13";
+import { initAuth } from "./js/auth.js?v=20260507_13";
+import { initCarSelector } from "./js/carSelector.js?v=20260507_13";
+import { initLocationsAdminUi } from "./js/admin/locations.js?v=20260507_13";
 
 // Always keep Help navigation working, even if legacy code below throws.
 // No internal links inside the button: just a hard navigation to /help.
@@ -1133,16 +1133,78 @@ initCarsAdminUi();
   const routeFromSelect   = document.getElementById("routeFromSelect");
   const routeToSelect     = document.getElementById("routeToSelect");
   const routeModalStatus  = document.getElementById("routeModalStatus");
-  const routeModalCarName = document.getElementById("routeModalCarName");
+  const routeModalCarSearch = document.getElementById("routeModalCarSearch");
+  const routeModalCarList   = document.getElementById("routeModalCarList");
+  const routeModalCarChosen = document.getElementById("routeModalCarChosen");
+
+  let _routeModalSelectedCar = null; // { plateNumber, brand, model }
+
+  // Поиск машины внутри модалки
+  let _allCarsCache = [];
+  _carsPromise.then(data => { _allCarsCache = Array.isArray(data?.cars) ? data.cars : []; });
+
+  function routeModalRenderList(query) {
+    if (!routeModalCarList) return;
+    const q = (query || "").toLowerCase().trim();
+    const matches = q.length === 0 ? _allCarsCache : _allCarsCache.filter(c =>
+      (c.plateNumber || "").toLowerCase().includes(q) ||
+      (c.brand || "").toLowerCase().includes(q) ||
+      (c.model || "").toLowerCase().includes(q)
+    );
+    if (matches.length === 0) {
+      routeModalCarList.innerHTML = '<div style="padding:10px 14px; font-size:13px; color:#94a3b8;">Не найдено</div>';
+    } else {
+      routeModalCarList.innerHTML = matches.slice(0, 30).map(c => {
+        const label = [c.brand, c.model, c.plateNumber].filter(Boolean).join(" ");
+        return `<div class="vehicleCard__searchItem" data-plate="${c.plateNumber}" data-brand="${c.brand||''}" data-model="${c.model||''}"
+          style="padding:10px 14px; cursor:pointer; font-size:14px; border-bottom:1px solid #f1f5f9;">${label}</div>`;
+      }).join("");
+      routeModalCarList.querySelectorAll(".vehicleCard__searchItem").forEach(el => {
+        el.addEventListener("click", () => {
+          _routeModalSelectedCar = { plateNumber: el.dataset.plate, brand: el.dataset.brand, model: el.dataset.model };
+          const label = [_routeModalSelectedCar.brand, _routeModalSelectedCar.model, _routeModalSelectedCar.plateNumber].filter(Boolean).join(" ");
+          routeModalCarSearch.value = label;
+          routeModalCarChosen.textContent = "✓ " + label;
+          routeModalCarChosen.classList.remove("hidden");
+          routeModalCarList.classList.add("hidden");
+          // Авто-заполнение «Откуда» из последнего маршрута
+          if (_activeRouteLastLocation) routeFromSelect.value = _activeRouteLastLocation;
+        });
+      });
+    }
+    routeModalCarList.classList.remove("hidden");
+  }
+
+  routeModalCarSearch?.addEventListener("input", () => {
+    _routeModalSelectedCar = null;
+    routeModalCarChosen?.classList.add("hidden");
+    routeModalRenderList(routeModalCarSearch.value);
+  });
+  routeModalCarSearch?.addEventListener("focus", () => routeModalRenderList(routeModalCarSearch.value));
+  document.addEventListener("click", e => {
+    if (!routeModal?.contains(e.target)) return;
+    if (!routeModalCarSearch?.contains(e.target) && !routeModalCarList?.contains(e.target)) {
+      routeModalCarList?.classList.add("hidden");
+    }
+  });
 
   function openRouteModal() {
     if (!routeModal) return;
     routeModalStatus.textContent = "";
-    // Заполняем название машины
-    const car = window._carSelectorGetSelected?.();
-    routeModalCarName.textContent = car
-      ? [car.brand, car.model, car.plateNumber].filter(Boolean).join(" ")
-      : "—";
+    // Сбрасываем выбор машины, но пробуем подставить из CarSelector
+    _routeModalSelectedCar = null;
+    const preselected = window._carSelectorGetSelected?.();
+    if (preselected) {
+      _routeModalSelectedCar = { plateNumber: preselected.plateNumber, brand: preselected.brand, model: preselected.model };
+      const label = [preselected.brand, preselected.model, preselected.plateNumber].filter(Boolean).join(" ");
+      routeModalCarSearch.value = label;
+      routeModalCarChosen.textContent = "✓ " + label;
+      routeModalCarChosen.classList.remove("hidden");
+    } else {
+      routeModalCarSearch.value = "";
+      routeModalCarChosen?.classList.add("hidden");
+    }
+    routeModalCarList?.classList.add("hidden");
     routeModal.classList.remove("hidden");
     routeModalOverlay.classList.remove("hidden");
     routeModal.setAttribute("aria-hidden", "false");
@@ -1151,19 +1213,14 @@ initCarsAdminUi();
     // Заполняем локации
     getLocationsForDropdown().then(locs => {
       [routeFromSelect, routeToSelect].forEach(sel => {
-        const cur = sel.value;
         sel.innerHTML = '<option value="">— не указано —</option>';
         locs.forEach(l => {
           const o = document.createElement("option");
           o.value = l.name; o.textContent = l.name;
           sel.appendChild(o);
         });
-        sel.value = cur;
       });
-      // Авто-выбор последней известной локации машины
-      if (car && _activeRouteLastLocation) {
-        routeFromSelect.value = _activeRouteLastLocation;
-      }
+      if (_activeRouteLastLocation) routeFromSelect.value = _activeRouteLastLocation;
     });
   }
 
@@ -1172,6 +1229,7 @@ initCarsAdminUi();
     routeModalOverlay?.classList.add("hidden");
     routeModal?.setAttribute("aria-hidden", "true");
     routeModalOverlay?.setAttribute("aria-hidden", "true");
+    routeModalCarList?.classList.add("hidden");
     window._onModalClose?.();
   }
 
@@ -1179,7 +1237,7 @@ initCarsAdminUi();
   routeModalOverlay?.addEventListener("click", closeRouteModal);
 
   document.getElementById("routeModalCreate")?.addEventListener("click", async () => {
-    const car = window._carSelectorGetSelected?.();
+    const car = _routeModalSelectedCar;
     const toLoc = routeToSelect?.value?.trim();
     if (!car) { routeModalStatus.textContent = "Сначала выберите автомобиль."; return; }
     if (!toLoc) { routeModalStatus.textContent = "Укажите локацию назначения."; return; }
