@@ -71,6 +71,8 @@ locationDb.EnsureCreatedAndSeed();
 
 var checkupDb = new CheckupDb(Path.Combine(dataRoot, "checkups.db"));
 
+var routeDb = new RoutesDb(Path.Combine(dataRoot, "routes.db"));
+
 app.UseResponseCompression();
 
 // Return JSON error instead of empty 500 on unhandled exceptions.
@@ -892,6 +894,159 @@ app.MapGet("/driver-app/post-checkups", async () =>
     finally { xlLock.Release(); }
     return Results.Text(RenderTableHtml("Осмотры", checkUps), "text/html; charset=utf-8");
 });
+
+// ── Routes API ────────────────────────────────────────────────────────────────
+
+static IResult RoutesForbidden() =>
+    Results.Text(JsonConvert.SerializeObject(new { status = "error", error = "FORBIDDEN" }), "application/json; charset=utf-8");
+
+static object RouteToObj(RoutesDb.RouteRecord r) => new
+{
+    id             = r.Id,
+    created_at     = r.CreatedAt,
+    car_id         = r.CarId,
+    car_number     = r.CarNumber,
+    car_brand      = r.CarBrand,
+    car_model      = r.CarModel,
+    driver_login   = r.DriverLogin,
+    driver_name    = r.DriverName,
+    driver_surname = r.DriverSurname,
+    from_location  = r.FromLocation,
+    to_location    = r.ToLocation,
+    status         = r.Status,
+    pre_checkup_id = r.PreCheckupId,
+    post_checkup_id= r.PostCheckupId,
+    departed_at    = r.DepartedAt,
+    arrived_at     = r.ArrivedAt,
+};
+
+// GET /api/routes — driver sees own, admin sees all
+app.MapGet("/api/routes", (HttpRequest request) =>
+{
+    var session = request.Query["session"].ToString();
+    if (string.IsNullOrWhiteSpace(session))
+        return RoutesForbidden();
+    var login = sessionStore.GetLogin(session);
+    var user = string.IsNullOrWhiteSpace(login) ? null : userDb.GetByLogin(login);
+    if (user == null) return RoutesForbidden();
+
+    RoutesDb.RouteRecord[] routes = IsAdminRole(user.Role)
+        ? routeDb.GetAll()
+        : routeDb.GetByDriver(login);
+
+    return Results.Text(JsonConvert.SerializeObject(new { status = "ok", routes = routes.Select(RouteToObj) }), "application/json; charset=utf-8");
+});
+
+// POST /api/routes — create route
+app.MapPost("/api/routes", async (HttpRequest request) =>
+{
+    var body = await ReadBodyAsync(request);
+    dynamic root = JObject.Parse(body);
+    var session = (string?)root.session ?? "";
+    var login = sessionStore.GetLogin(session);
+    var user = string.IsNullOrWhiteSpace(login) ? null : userDb.GetByLogin(login);
+    if (user == null) return RoutesForbidden();
+
+    var carNumber = ((string?)root.car_number ?? "").Trim();
+    var fromLoc   = ((string?)root.from_location ?? "").Trim();
+    var toLoc     = ((string?)root.to_location   ?? "").Trim();
+
+    if (string.IsNullOrWhiteSpace(carNumber) || string.IsNullOrWhiteSpace(toLoc))
+        return Results.Text(JsonConvert.SerializeObject(new { status = "error", error = "BAD_DATA" }), "application/json; charset=utf-8");
+
+    var carRec = carDb.GetByNumber(carNumber);
+    var carId  = carRec?.Id.ToString() ?? carNumber;
+    var carBrand = carRec?.Brand ?? "";
+    var carModel = carRec?.Model ?? "";
+
+    // One active route per car
+    if (routeDb.GetActiveByCarId(carId) != null)
+        return Results.Text(JsonConvert.SerializeObject(new { status = "error", error = "CAR_BUSY" }), "application/json; charset=utf-8");
+
+    var now = DateTime.Now.ToString("o");
+    var id = routeDb.Insert(new RoutesDb.RouteRecord
+    {
+        CreatedAt     = now,
+        CarId         = carId,
+        CarNumber     = carNumber,
+        CarBrand      = carBrand,
+        CarModel      = carModel,
+        DriverLogin   = login,
+        DriverName    = user.Name ?? "",
+        DriverSurname = user.Surname ?? "",
+        FromLocation  = fromLoc,
+        ToLocation    = toLoc,
+        DepartedAt    = now,
+    });
+
+    var route = routeDb.GetById(id);
+    return Results.Text(JsonConvert.SerializeObject(new { status = "ok", route = RouteToObj(route!) }), "application/json; charset=utf-8");
+});
+
+// POST /api/routes/{id}/complete
+app.MapPost("/api/routes/{id}/complete", async (HttpRequest request, long id) =>
+{
+    var body = await ReadBodyAsync(request);
+    dynamic root = JObject.Parse(body);
+    var session = (string?)root.session ?? "";
+    var login = sessionStore.GetLogin(session);
+    var user = string.IsNullOrWhiteSpace(login) ? null : userDb.GetByLogin(login);
+    if (user == null) return RoutesForbidden();
+
+    var route = routeDb.GetById(id);
+    if (route == null)
+        return Results.Text(JsonConvert.SerializeObject(new { status = "error", error = "NOT_FOUND" }), "application/json; charset=utf-8");
+
+    // Only driver of the route or admin can complete it
+    if (!IsAdminRole(user.Role) && !string.Equals(route.DriverLogin, login, StringComparison.OrdinalIgnoreCase))
+        return RoutesForbidden();
+
+    routeDb.Complete(id, DateTime.Now.ToString("o"));
+    return Results.Text(JsonConvert.SerializeObject(new { status = "ok" }), "application/json; charset=utf-8");
+});
+
+// GET /api/routes/active-cars — list car_ids that are in active routes
+app.MapGet("/api/routes/active-cars", (HttpRequest request) =>
+{
+    var session = request.Query["session"].ToString();
+    var login = sessionStore.GetLogin(session);
+    if (string.IsNullOrWhiteSpace(login)) return RoutesForbidden();
+
+    var ids = routeDb.GetActiveCarIds().ToArray();
+    return Results.Text(JsonConvert.SerializeObject(new { status = "ok", car_ids = ids }), "application/json; charset=utf-8");
+});
+
+// GET /api/routes/board — admin board: all cars with current location + active route
+app.MapGet("/api/routes/board", (HttpRequest request) =>
+{
+    var session = request.Query["session"].ToString();
+    var admin = RequireAdmin(userDb, sessionStore, session);
+    if (admin == null) return RoutesForbidden();
+
+    var locations = locationDb.GetAll().Select(l => l.Name).ToArray();
+    var allCars   = carDb.GetAll();
+    var lastLocs  = routeDb.GetCarLastLocations();
+    var activeRoutes = routeDb.GetAll().Where(r => r.Status == "active").ToDictionary(r => r.CarId, StringComparer.OrdinalIgnoreCase);
+
+    var cars = allCars.Select(c =>
+    {
+        activeRoutes.TryGetValue(c.Id.ToString(), out var active);
+        lastLocs.TryGetValue(c.Id.ToString(), out var loc);
+        return new
+        {
+            car_id       = c.Id.ToString(),
+            car_number   = c.Number,
+            car_brand    = c.Brand,
+            car_model    = c.Model,
+            current_location = loc ?? "",
+            active_route = active == null ? null : (object)RouteToObj(active),
+        };
+    }).ToArray();
+
+    return Results.Text(JsonConvert.SerializeObject(new { status = "ok", locations, cars }), "application/json; charset=utf-8");
+});
+
+// ── End Routes API ────────────────────────────────────────────────────────────
 
 app.MapGet("/", () => Results.Redirect("/driver-app/"));
 

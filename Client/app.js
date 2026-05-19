@@ -114,6 +114,7 @@ document.getElementById("sidebarGoUsers")?.addEventListener?.("click", () => { c
 document.getElementById("sidebarGoReports")?.addEventListener?.("click", () => { closeSidebar(); nextPage("reports"); });
 document.getElementById("sidebarGoCars")?.addEventListener?.("click", () => { closeSidebar(); nextPage("cars"); });
 document.getElementById("sidebarGoLocations")?.addEventListener?.("click", () => { closeSidebar(); nextPage("locations"); });
+document.getElementById("sidebarGoRoutes")?.addEventListener?.("click", () => { closeSidebar(); nextPage("routes"); });
 
 // Start fetching cars immediately — in parallel with auth, not after it.
 // /api/cars is public so no session needed.
@@ -196,6 +197,8 @@ initAuth({
 			"hidden",
 			currentRole !== "admin",
 		);
+		// Маршруты видны всем авторизованным пользователям
+		document.getElementById("sidebarGoRoutes")?.classList?.remove?.("hidden");
 
 		if(currentRole === "admin") {
 			access_key = response.access_key;
@@ -218,13 +221,12 @@ initAuth({
 		}
 
 		// Car selector is available only after successful authorization
-		initCarSelector({
+		const _cs = initCarSelector({
 			endpoint,
 			get,
 			carsRequest: async () => _carsPromise,
 			onCarsLoaded: () => {},
 			onSelectCar: (car) => {
-				// Keep business logic intact: reuse current selectCar pathway.
 				selectCar({
 					number: car.plateNumber,
 					brand: car.brand,
@@ -239,6 +241,8 @@ initAuth({
 				clearSelectedCar();
 			},
 		});
+		// Expose selected car globally for routes modal
+		window._carSelectorGetSelected = () => _cs.getSelected();
 	}
 });
 
@@ -1095,6 +1099,241 @@ initCarsAdminUi();
 	refreshLocationsAdminList = locs.refresh;
 	getLocationsForDropdown = locs.getLocations;
 }
+
+// ── Routes ────────────────────────────────────────────────────────────────
+{
+  let _activeRoute = null; // текущий активный маршрут водителя
+
+  const s = () => localStorage.getItem("session") || "";
+
+  async function apiGetRoutes() {
+    const r = await fetch(endpoint + "/api/routes?session=" + encodeURIComponent(s()), { credentials: "same-origin", cache: "no-store" });
+    return r.json();
+  }
+  async function apiCreateRoute(body) {
+    return postRequest(endpoint + "/api/routes", JSON.stringify({ session: s(), ...body }));
+  }
+  async function apiCompleteRoute(id) {
+    return postRequest(endpoint + "/api/routes/" + id + "/complete", JSON.stringify({ session: s() }));
+  }
+  async function apiGetBoard() {
+    const r = await fetch(endpoint + "/api/routes/board?session=" + encodeURIComponent(s()), { credentials: "same-origin", cache: "no-store" });
+    return r.json();
+  }
+
+  function fmtDate(iso) {
+    if (!iso) return "—";
+    try { return new Date(iso).toLocaleString("ru-RU", { day:"2-digit", month:"2-digit", year:"2-digit", hour:"2-digit", minute:"2-digit" }); }
+    catch { return iso; }
+  }
+
+  // ── Модалка создания маршрута ──
+  const routeModal        = document.getElementById("routeModal");
+  const routeModalOverlay = document.getElementById("routeModalOverlay");
+  const routeFromSelect   = document.getElementById("routeFromSelect");
+  const routeToSelect     = document.getElementById("routeToSelect");
+  const routeModalStatus  = document.getElementById("routeModalStatus");
+  const routeModalCarName = document.getElementById("routeModalCarName");
+
+  function openRouteModal() {
+    if (!routeModal) return;
+    routeModalStatus.textContent = "";
+    // Заполняем название машины
+    const car = window._carSelectorGetSelected?.();
+    routeModalCarName.textContent = car
+      ? [car.brand, car.model, car.plateNumber].filter(Boolean).join(" ")
+      : "—";
+    routeModal.classList.remove("hidden");
+    routeModalOverlay.classList.remove("hidden");
+    routeModal.setAttribute("aria-hidden", "false");
+    routeModalOverlay.setAttribute("aria-hidden", "false");
+    window._onModalOpen?.();
+    // Заполняем локации
+    getLocationsForDropdown().then(locs => {
+      [routeFromSelect, routeToSelect].forEach(sel => {
+        const cur = sel.value;
+        sel.innerHTML = '<option value="">— не указано —</option>';
+        locs.forEach(l => {
+          const o = document.createElement("option");
+          o.value = l.name; o.textContent = l.name;
+          sel.appendChild(o);
+        });
+        sel.value = cur;
+      });
+      // Авто-выбор последней известной локации машины
+      if (car && _activeRouteLastLocation) {
+        routeFromSelect.value = _activeRouteLastLocation;
+      }
+    });
+  }
+
+  function closeRouteModal() {
+    routeModal?.classList.add("hidden");
+    routeModalOverlay?.classList.add("hidden");
+    routeModal?.setAttribute("aria-hidden", "true");
+    routeModalOverlay?.setAttribute("aria-hidden", "true");
+    window._onModalClose?.();
+  }
+
+  document.getElementById("routeModalCancel")?.addEventListener("click", closeRouteModal);
+  routeModalOverlay?.addEventListener("click", closeRouteModal);
+
+  document.getElementById("routeModalCreate")?.addEventListener("click", async () => {
+    const car = window._carSelectorGetSelected?.();
+    const toLoc = routeToSelect?.value?.trim();
+    if (!car) { routeModalStatus.textContent = "Сначала выберите автомобиль."; return; }
+    if (!toLoc) { routeModalStatus.textContent = "Укажите локацию назначения."; return; }
+    routeModalStatus.textContent = "";
+    document.getElementById("routeModalCreate").disabled = true;
+    try {
+      const res = await apiCreateRoute({
+        car_number: car.plateNumber,
+        from_location: routeFromSelect?.value?.trim() || "",
+        to_location: toLoc,
+      });
+      if (res?.status === "ok") {
+        closeRouteModal();
+        await loadDriverRoutes();
+      } else if (res?.error === "CAR_BUSY") {
+        routeModalStatus.textContent = "Этот автомобиль уже в маршруте.";
+      } else {
+        routeModalStatus.textContent = "Ошибка создания маршрута.";
+      }
+    } catch { routeModalStatus.textContent = "Ошибка сети."; }
+    finally { document.getElementById("routeModalCreate").disabled = false; }
+  });
+
+  document.getElementById("routeCreateBtn")?.addEventListener("click", openRouteModal);
+
+  // ── Завершить без осмотра ──
+  document.getElementById("routeActiveComplete")?.addEventListener("click", async () => {
+    if (!_activeRoute) return;
+    if (!confirm("Завершить маршрут без осмотра по прибытии?")) return;
+    const res = await apiCompleteRoute(_activeRoute.id);
+    if (res?.status === "ok") await loadDriverRoutes();
+  });
+
+  // ── Чек-ап из маршрута ──
+  document.getElementById("routeActivePreCheckup")?.addEventListener("click", () => {
+    if (_activeRoute) localStorage.setItem("activeRouteId", String(_activeRoute.id));
+    nextPage("pretrip");
+  });
+  document.getElementById("routeActivePostCheckup")?.addEventListener("click", () => {
+    if (_activeRoute) localStorage.setItem("activeRouteId", String(_activeRoute.id));
+    nextPage("posttrip");
+  });
+
+  // ── Последняя известная локация машины (для автозаполнения «Откуда») ──
+  let _activeRouteLastLocation = "";
+
+  // ── Отрисовка списка водителя ──
+  async function loadDriverRoutes() {
+    const data = await apiGetRoutes();
+    if (data?.status !== "ok") return;
+    const routes = data.routes || [];
+
+    _activeRoute = routes.find(r => r.status === "active") || null;
+    // последняя известная = to_location последнего завершённого
+    const lastCompleted = routes.filter(r => r.status === "completed")[0];
+    _activeRouteLastLocation = lastCompleted?.to_location || "";
+
+    // Активный маршрут
+    const activeWrap = document.getElementById("routeActiveWrap");
+    const activeInfo = document.getElementById("routeActiveInfo");
+    if (_activeRoute) {
+      activeWrap?.classList.remove("hidden");
+      const from = _activeRoute.from_location || "—";
+      const to   = _activeRoute.to_location   || "—";
+      const car  = [_activeRoute.car_brand, _activeRoute.car_model, _activeRoute.car_number].filter(Boolean).join(" ");
+      activeInfo.innerHTML =
+        `<b>${car}</b><br>${from} → <b>${to}</b><br><span style="color:#94a3b8">Выехал: ${fmtDate(_activeRoute.departed_at)}</span>`;
+      // Показать кнопку pre-checkup только если ещё не был сделан
+      const preBtn = document.getElementById("routeActivePreCheckup");
+      if (preBtn) preBtn.classList.toggle("hidden", !!_activeRoute.pre_checkup_id);
+    } else {
+      activeWrap?.classList.add("hidden");
+    }
+
+    // Архив
+    const list = document.getElementById("routeDriverList");
+    const completed = routes.filter(r => r.status === "completed");
+    if (!list) return;
+    if (completed.length === 0) {
+      list.innerHTML = '<div style="color:#94a3b8; font-size:13px; text-align:center; padding:20px 0;">Нет завершённых маршрутов</div>';
+      return;
+    }
+    list.innerHTML = completed.map(r => {
+      const from = r.from_location || "—";
+      const to   = r.to_location   || "—";
+      const car  = [r.car_brand, r.car_model, r.car_number].filter(Boolean).join(" ");
+      return `<div class="routeArchiveItem">
+        <span class="routeArchiveItem__status">✅</span>
+        <div class="routeArchiveItem__body">
+          <div class="routeArchiveItem__route">${from} → ${to}</div>
+          <div class="routeArchiveItem__meta">${car} · ${fmtDate(r.arrived_at)}</div>
+        </div>
+      </div>`;
+    }).join("");
+  }
+
+  // ── Доска для администратора ──
+  async function loadAdminBoard() {
+    const boardWrap = document.getElementById("routesBoardWrap");
+    if (!boardWrap) return;
+    boardWrap.innerHTML = '<div style="color:#94a3b8; font-size:13px; padding:20px 0;">Загрузка...</div>';
+    const data = await apiGetBoard();
+    if (data?.status !== "ok") { boardWrap.innerHTML = '<div style="color:#ef4444;">Ошибка загрузки</div>'; return; }
+
+    const locations = data.locations || [];
+    const cars      = data.cars || [];
+
+    // Колонки: «В пути» + все локации
+    const cols = [{ key: "__transit__", label: "В пути", transit: true }, ...locations.map(l => ({ key: l, label: l, transit: false }))];
+
+    boardWrap.innerHTML = cols.map(col => {
+      const colCars = col.transit
+        ? cars.filter(c => c.active_route)
+        : cars.filter(c => !c.active_route && c.current_location === col.key);
+
+      const cards = colCars.map(c => {
+        const ar = c.active_route;
+        const model = [c.car_brand, c.car_model].filter(Boolean).join(" ");
+        const routeHtml = ar
+          ? `<div class="routesCarCard__route">➜ ${ar.to_location}</div><div class="routesCarCard__driver">${ar.driver_name} ${ar.driver_surname}</div>`
+          : "";
+        return `<div class="routesCarCard">
+          <div class="routesCarCard__number">${c.car_number}</div>
+          <div class="routesCarCard__model">${model}</div>
+          ${routeHtml}
+        </div>`;
+      }).join("") || '<div style="color:#cbd5e1; font-size:12px; text-align:center; padding:10px 0;">—</div>';
+
+      return `<div class="routesCol${col.transit ? " routesCol--transit" : ""}">
+        <div class="routesCol__title">${col.label} <span style="color:#94a3b8; font-weight:400;">(${colCars.length})</span></div>
+        ${cards}
+      </div>`;
+    }).join("");
+  }
+
+  document.getElementById("routesBoardRefresh")?.addEventListener("click", loadAdminBoard);
+
+  // ── Открытие страницы маршрутов ──
+  window._initRoutesPage = (role) => {
+    const isAdmin = role === "admin" || role === "owner";
+    document.getElementById("routesDriverHeader")?.classList.toggle("hidden", isAdmin);
+    document.getElementById("routesAdminBoard")?.classList.toggle("hidden", !isAdmin);
+    if (isAdmin) loadAdminBoard();
+    else loadDriverRoutes();
+  };
+
+  // Перегружаем nextPage чтобы инициализировать маршруты при навигации
+  const _origNextPage = nextPage;
+  nextPage = function(name) {
+    _origNextPage(name);
+    if (name === "routes") window._initRoutesPage?.(currentRole);
+  };
+}
+// ── /Routes ───────────────────────────────────────────────────────────────
 
 document.getElementById("toGeo").onclick = () => nextPage("geo");
 

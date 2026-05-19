@@ -1904,3 +1904,110 @@ body{
   .visible{
     opacity: 1;
   }
+
+/* ── Routes ─────────────────────────────────────────────────────────────── */
+
+.routesBoard{
+  display: flex;
+  gap: 14px;
+  overflow-x: auto;
+  padding-bottom: 12px;
+  align-items: flex-start;
+}
+
+.routesCol{
+  flex: 0 0 220px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 16px;
+  padding: 12px;
+  min-height: 120px;
+}
+
+.routesCol__title{
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.7px;
+  text-transform: uppercase;
+  color: #64748b;
+  margin-bottom: 10px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.routesCol--transit .routesCol__title{
+  color: #d97706;
+}
+
+.routesCarCard{
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 10px 12px;
+  margin-bottom: 8px;
+  font-size: 13px;
+  box-shadow: 0 1px 4px rgba(15,23,42,0.06);
+}
+
+.routesCarCard__number{
+  font-weight: 700;
+  font-size: 14px;
+  color: #0f172a;
+  margin-bottom: 2px;
+}
+
+.routesCarCard__model{
+  color: #64748b;
+  font-size: 12px;
+  margin-bottom: 6px;
+}
+
+.routesCarCard__route{
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12px;
+  color: #d97706;
+  font-weight: 600;
+  margin-bottom: 3px;
+}
+
+.routesCarCard__driver{
+  font-size: 11px;
+  color: #94a3b8;
+}
+
+.routeArchiveItem{
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  background: #f8fafc;
+  font-size: 13px;
+}
+
+.routeArchiveItem__status{
+  font-size: 18px;
+  flex-shrink: 0;
+}
+
+.routeArchiveItem__body{
+  flex: 1;
+  min-width: 0;
+}
+
+.routeArchiveItem__route{
+  font-weight: 600;
+  color: #0f172a;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.routeArchiveItem__meta{
+  font-size: 11px;
+  color: #94a3b8;
+  margin-top: 2px;
+}
