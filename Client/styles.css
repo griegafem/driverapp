@@ -295,6 +295,15 @@ body{
 .btn--danger:hover{ filter: brightness(0.96); }
 .btn--danger:active{ transform: translateY(1px) scale(0.99); }
 
+.btn--success{
+  background: #22c55e;
+  border-color: rgba(34,197,94,0.22);
+  color: #fff;
+  box-shadow: 0 14px 30px rgba(34,197,94,0.22);
+}
+.btn--success:hover{ filter: brightness(0.96); }
+.btn--success:active{ transform: translateY(1px) scale(0.99); }
+
 /* Fullscreen overlays (loading/login) */
 #loading,
 #login-form{

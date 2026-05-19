@@ -1,10 +1,10 @@
 // Cache-bust ESM modules on deploys (Safari/iOS is especially aggressive here).
-const __v = "20260507_13";
-import { endpoint, postRequest } from "./js/api.js?v=20260507_13";
-import { get } from "./js/dom.js?v=20260507_13";
-import { initAuth } from "./js/auth.js?v=20260507_13";
-import { initCarSelector } from "./js/carSelector.js?v=20260507_13";
-import { initLocationsAdminUi } from "./js/admin/locations.js?v=20260507_13";
+const __v = "20260507_14";
+import { endpoint, postRequest } from "./js/api.js?v=20260507_14";
+import { get } from "./js/dom.js?v=20260507_14";
+import { initAuth } from "./js/auth.js?v=20260507_14";
+import { initCarSelector } from "./js/carSelector.js?v=20260507_14";
+import { initLocationsAdminUi } from "./js/admin/locations.js?v=20260507_14";
 
 // Always keep Help navigation working, even if legacy code below throws.
 // No internal links inside the button: just a hard navigation to /help.
@@ -1236,13 +1236,16 @@ initCarsAdminUi();
   document.getElementById("routeModalCancel")?.addEventListener("click", closeRouteModal);
   routeModalOverlay?.addEventListener("click", closeRouteModal);
 
-  document.getElementById("routeModalCreate")?.addEventListener("click", async () => {
+  async function submitRouteModal(withCheckup) {
     const car = _routeModalSelectedCar;
     const toLoc = routeToSelect?.value?.trim();
     if (!car) { routeModalStatus.textContent = "Сначала выберите автомобиль."; return; }
     if (!toLoc) { routeModalStatus.textContent = "Укажите локацию назначения."; return; }
     routeModalStatus.textContent = "";
-    document.getElementById("routeModalCreate").disabled = true;
+    const btnCreate = document.getElementById("routeModalCreate");
+    const btnNoChk  = document.getElementById("routeModalCreateNoCheckup");
+    if (btnCreate) btnCreate.disabled = true;
+    if (btnNoChk)  btnNoChk.disabled  = true;
     try {
       const res = await apiCreateRoute({
         car_number: car.plateNumber,
@@ -1252,14 +1255,25 @@ initCarsAdminUi();
       if (res?.status === "ok") {
         closeRouteModal();
         await loadDriverRoutes();
+        // Если нажали «Создать» — предлагаем чек-ап перед выездом
+        if (withCheckup && res.route?.id) {
+          localStorage.setItem("activeRouteId", String(res.route.id));
+          nextPage("pretrip");
+        }
       } else if (res?.error === "CAR_BUSY") {
         routeModalStatus.textContent = "Этот автомобиль уже в маршруте.";
       } else {
         routeModalStatus.textContent = "Ошибка создания маршрута.";
       }
     } catch { routeModalStatus.textContent = "Ошибка сети."; }
-    finally { document.getElementById("routeModalCreate").disabled = false; }
-  });
+    finally {
+      if (btnCreate) btnCreate.disabled = false;
+      if (btnNoChk)  btnNoChk.disabled  = false;
+    }
+  }
+
+  document.getElementById("routeModalCreate")?.addEventListener("click", () => submitRouteModal(true));
+  document.getElementById("routeModalCreateNoCheckup")?.addEventListener("click", () => submitRouteModal(false));
 
   document.getElementById("routeCreateBtn")?.addEventListener("click", openRouteModal);
 
