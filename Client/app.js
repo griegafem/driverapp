@@ -668,6 +668,10 @@ function clearSelectedCar(){
 function nextPage(name) {
 	document.querySelectorAll(".page").forEach(p => p.classList.remove("active"));
 	document.getElementById("page-" + name).classList.add("active");
+	// Auto-refresh admin list pages on navigation
+	if (name === "users")     refreshUsersAdminList?.();
+	if (name === "cars")      refreshCarsAdminList?.();
+	if (name === "locations") refreshLocationsAdminList?.();
 }
 
 async function apiGetUsers(){
@@ -923,6 +927,7 @@ function initCarsAdminUi(){
 	const inYear = document.getElementById("carYear");
 	const inDepartment = document.getElementById("carDepartment");
 	const inResponsible = document.getElementById("carResponsible");
+	const inCurrentLocation = document.getElementById("carCurrentLocation");
 
 	// Confirm delete
 	const cModal = document.getElementById("confirmCarModal");
@@ -955,7 +960,21 @@ function initCarsAdminUi(){
 		window._onModalClose?.();
 	};
 
-	const fill = (c) => {
+	const populateLocationSelect = async (selectedValue) => {
+		if (!inCurrentLocation) return;
+		try {
+			const locs = await getLocationsForDropdown();
+			inCurrentLocation.innerHTML = '<option value="">— Не указана —</option>';
+			locs.forEach(l => {
+				const opt = document.createElement("option");
+				opt.value = l.name; opt.textContent = l.name;
+				if (l.name === selectedValue) opt.selected = true;
+				inCurrentLocation.appendChild(opt);
+			});
+		} catch { /* non-critical */ }
+	};
+
+	const fill = async (c) => {
 		inId && (inId.value = c?.id ? String(c.id) : "");
 		inNumber && (inNumber.value = c?.number || "");
 		inBrand && (inBrand.value = c?.brand || "");
@@ -964,6 +983,7 @@ function initCarsAdminUi(){
 		inYear && (inYear.value = c?.year || "");
 		inDepartment && (inDepartment.value = c?.department || "");
 		inResponsible && (inResponsible.value = c?.responsible || "");
+		await populateLocationSelect(c?.current_location || "");
 	};
 
 	const render = () => {
@@ -975,6 +995,7 @@ function initCarsAdminUi(){
 				<td class="mono" style="padding:8px; border-top:1px solid rgba(226,232,240,0.8); font-size:13px;">${c.number || ""}</td>
 				<td style="padding:8px; border-top:1px solid rgba(226,232,240,0.8); font-size:13px;">${c.brand || ""}</td>
 				<td class="mono" style="padding:8px; border-top:1px solid rgba(226,232,240,0.8); font-size:12px;">${c.vin || ""}</td>
+				<td style="padding:8px; border-top:1px solid rgba(226,232,240,0.8); font-size:12px; color:#0ea5e9;">${c.current_location || "—"}</td>
 				<td style="padding:6px; border-top:1px solid rgba(226,232,240,0.8); white-space:nowrap;">
 					<div class="usersActions">
 						<button class="btn btn--secondary btn--xxs" data-act="edit" data-id="${c.id}" title="Редактировать" aria-label="Редактировать">✎</button>
@@ -1032,10 +1053,10 @@ function initCarsAdminUi(){
 	};
 
 	btnBack.onclick = () => nextPage("car");
-	btnOpenAdd.onclick = () => {
+	btnOpenAdd.onclick = async () => {
 		title.textContent = "Добавление автомобиля";
 		btnSubmit.textContent = "Добавить";
-		fill(null);
+		await fill(null);
 		openModal();
 		inNumber?.focus?.();
 	};
@@ -1054,7 +1075,7 @@ function initCarsAdminUi(){
 		if (act === "edit") {
 			title.textContent = "Редактирование автомобиля";
 			btnSubmit.textContent = "Сохранить";
-			fill(c);
+			await fill(c);
 			openModal();
 			return;
 		}
@@ -1078,6 +1099,7 @@ function initCarsAdminUi(){
 			year: (inYear?.value || "").trim(),
 			department: (inDepartment?.value || "").trim(),
 			responsible: (inResponsible?.value || "").trim(),
+			current_location: (inCurrentLocation?.value || "").trim(),
 		};
 		setModalStatus("Сохранение...");
 		const r = await apiUpsertCarAdmin(car);

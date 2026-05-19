@@ -287,6 +287,7 @@ app.MapGet("/api/admin/cars", (HttpRequest request) =>
             year = c.Year ?? "",
             department = c.Department ?? "",
             responsible = c.Responsible ?? "",
+            current_location = c.CurrentLocation ?? "",
         })
         .ToArray();
 
@@ -319,6 +320,7 @@ app.MapPost("/api/admin/cars/upsert", async (HttpRequest request) =>
         Year = GetStr(c, "year"),
         Department = GetStr(c, "department"),
         Responsible = GetStr(c, "responsible"),
+        CurrentLocation = GetStr(c, "current_location"),
     });
 
     return Results.Text(JsonConvert.SerializeObject(new { status = "ok" }), "application/json; charset=utf-8");
@@ -1002,6 +1004,9 @@ app.MapPost("/api/routes/{id}/complete", async (HttpRequest request, long id) =>
         return RoutesForbidden();
 
     routeDb.Complete(id, DateTime.Now.ToString("o"));
+    // Update car's current location to the route's destination
+    if (!string.IsNullOrWhiteSpace(route.ToLocation) && !string.IsNullOrWhiteSpace(route.CarNumber))
+        carDb.UpdateLocation(route.CarNumber, route.ToLocation);
     return Results.Text(JsonConvert.SerializeObject(new { status = "ok" }), "application/json; charset=utf-8");
 });
 

@@ -4,13 +4,13 @@
 <head>
 	<meta charset="UTF-8" name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 	<title>Осмотр авто</title>
-	<link rel="stylesheet" href="/driver-app/styles.css?v=20260507_16">
-	<link rel="modulepreload" href="/driver-app/app.js?v=20260507_16">
-	<link rel="modulepreload" href="/driver-app/js/api.js?v=20260507_16">
-	<link rel="modulepreload" href="/driver-app/js/dom.js?v=20260507_16">
-	<link rel="modulepreload" href="/driver-app/js/auth.js?v=20260507_16">
-	<link rel="modulepreload" href="/driver-app/js/carSelector.js?v=20260507_16">
-	<link rel="modulepreload" href="/driver-app/js/admin/locations.js?v=20260507_16">
+	<link rel="stylesheet" href="/driver-app/styles.css?v=20260507_17">
+	<link rel="modulepreload" href="/driver-app/app.js?v=20260507_17">
+	<link rel="modulepreload" href="/driver-app/js/api.js?v=20260507_17">
+	<link rel="modulepreload" href="/driver-app/js/dom.js?v=20260507_17">
+	<link rel="modulepreload" href="/driver-app/js/auth.js?v=20260507_17">
+	<link rel="modulepreload" href="/driver-app/js/carSelector.js?v=20260507_17">
+	<link rel="modulepreload" href="/driver-app/js/admin/locations.js?v=20260507_17">
 	<script>
 		// Optional override for API base URL (for prod/staging split).
 		// If empty/undefined, client will use current origin.
@@ -243,6 +243,7 @@
 							<th style="padding:10px; font-size:12px; color:#64748b;">Номер</th>
 							<th style="padding:10px; font-size:12px; color:#64748b;">Марка</th>
 							<th style="padding:10px; font-size:12px; color:#64748b;">VIN</th>
+							<th style="padding:10px; font-size:12px; color:#64748b;">Локация</th>
 							<th style="padding:10px; font-size:12px; color:#64748b;">Действия</th>
 						</tr>
 					</thead>
@@ -366,6 +367,15 @@
 					<div class="msFormRow">
 						<label class="msLabel" for="carResponsible">Ответственный</label>
 						<input id="carResponsible" class="def_input" placeholder="Ответственный" />
+					</div>
+					<div class="msFormRow">
+						<label class="msLabel" for="carCurrentLocation" style="display:flex; align-items:center; gap:6px;">
+							Текущая локация
+							<span class="tooltip-icon" title="Где сейчас находится автомобиль. Обновляется автоматически при завершении маршрута. Вы можете изменить вручную, если нужно скорректировать без маршрута.">ℹ️</span>
+						</label>
+						<select id="carCurrentLocation" class="def_input">
+							<option value="">— Не указана —</option>
+						</select>
 					</div>
 				</div>
 
@@ -925,7 +935,7 @@
 	</div>
 
 	<script defer src="https://telegram.org/js/telegram-web-app.js"></script>
-	<script type="module" src="/driver-app/app.js?v=20260507_16"></script>
+	<script type="module" src="/driver-app/app.js?v=20260507_17"></script>
 </body>
 
 </html>
