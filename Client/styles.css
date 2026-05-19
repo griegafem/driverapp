@@ -1078,6 +1078,8 @@ body{
   align-items: flex-start;
   justify-content: center;
   padding: 18px;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 .msModal.hidden,
@@ -1088,11 +1090,14 @@ body{
 .msModal__card{
   width: min(640px, 100%);
   margin-top: 8vh;
+  margin-bottom: 18px;
   background: #ffffff;
   border: 1px solid rgba(226,232,240,0.95);
   border-radius: 18px;
   box-shadow: 0 24px 60px rgba(15,23,42,0.18);
   overflow: hidden;
+  /* Let card grow naturally; parent .msModal scrolls on overflow */
+  flex-shrink: 0;
 }
 
 .msModal__header{
@@ -1142,10 +1147,12 @@ body{
 
 @media (max-width: 640px){
   .msModal{
-    padding: 12px;
+    padding: 8px;
+    align-items: flex-start;
   }
   .msModal__card{
-    margin-top: 5vh;
+    margin-top: 12px;
+    margin-bottom: 12px;
   }
   .msFormGrid{
     grid-template-columns: 1fr;

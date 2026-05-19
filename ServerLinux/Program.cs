@@ -1036,14 +1036,18 @@ app.MapGet("/api/routes/board", (HttpRequest request) =>
     var cars = allCars.Select(c =>
     {
         activeRoutes.TryGetValue(c.Id.ToString(), out var active);
-        lastLocs.TryGetValue(c.Id.ToString(), out var loc);
+        lastLocs.TryGetValue(c.Id.ToString(), out var routeLoc);
+        // Priority: last completed route location → manually set car location
+        var currentLoc = !string.IsNullOrWhiteSpace(routeLoc)
+            ? routeLoc
+            : (c.CurrentLocation ?? "");
         return new
         {
             car_id       = c.Id.ToString(),
             car_number   = c.Number,
             car_brand    = c.Brand,
             car_model    = c.Model,
-            current_location = loc ?? "",
+            current_location = currentLoc,
             active_route = active == null ? null : (object)RouteToObj(active),
         };
     }).ToArray();
