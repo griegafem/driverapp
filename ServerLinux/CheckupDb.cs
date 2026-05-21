@@ -160,6 +160,22 @@ public sealed class CheckupDb
         return conn;
     }
 
+    public (string? Mileage, string? Date) GetLastMileageByCarNumber(string carNumber)
+    {
+        var n = carNumber.Trim().ToUpperInvariant();
+        using var conn = Open();
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = """
+            SELECT mileage, submitted_at FROM pre_checkups
+            WHERE car_number = $num AND mileage IS NOT NULL AND mileage != ''
+            ORDER BY id DESC LIMIT 1;
+            """;
+        cmd.Parameters.AddWithValue("$num", n);
+        using var r = cmd.ExecuteReader();
+        if (!r.Read()) return (null, null);
+        return (r.IsDBNull(0) ? null : r.GetString(0), r.IsDBNull(1) ? null : r.GetString(1));
+    }
+
     public sealed class PreCheckupRecord
     {
         public string SubmittedAt { get; set; } = "";

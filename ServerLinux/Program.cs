@@ -1071,6 +1071,120 @@ app.MapGet("/api/routes/board", (HttpRequest request) =>
     return Results.Text(JsonConvert.SerializeObject(new { status = "ok", locations, cars }), "application/json; charset=utf-8");
 });
 
+// ── Car Card API ──────────────────────────────────────────────────────────────
+
+// GET /api/car-card/{number} — car info + last mileage + photo flag
+app.MapGet("/api/car-card/{number}", (HttpRequest request, string number) =>
+{
+    var session = request.Query["session"].ToString();
+    var login = sessionStore.GetLogin(session);
+    if (string.IsNullOrWhiteSpace(login)) return Results.Text(JsonConvert.SerializeObject(new { status = "error", error = "FORBIDDEN" }), "application/json; charset=utf-8");
+
+    var car = carDb.GetByNumber(number);
+    if (car == null) return Results.Text(JsonConvert.SerializeObject(new { status = "error", error = "NOT_FOUND" }), "application/json; charset=utf-8");
+
+    var (mileage, mileageDate) = checkupDb.GetLastMileageByCarNumber(number);
+    var lastLocs = routeDb.GetCarLastLocations();
+    lastLocs.TryGetValue(car.Id.ToString(), out var routeLoc);
+    var location = !string.IsNullOrWhiteSpace(routeLoc) ? routeLoc : (car.CurrentLocation ?? "");
+
+    var photoPath = Path.Combine(dataRoot, "car-photos", CarDb.NormalizeNumber(number) + ".jpg");
+    var hasPhoto = System.IO.File.Exists(photoPath);
+
+    return Results.Text(JsonConvert.SerializeObject(new
+    {
+        status = "ok",
+        car = new
+        {
+            id = car.Id,
+            number = car.Number,
+            brand = car.Brand,
+            model = car.Model,
+            vin = car.Vin,
+            year = car.Year,
+            department = car.Department,
+            responsible = car.Responsible,
+            current_location = location,
+            last_mileage = mileage ?? "",
+            last_mileage_date = mileageDate ?? "",
+            has_photo = hasPhoto,
+        }
+    }), "application/json; charset=utf-8");
+});
+
+// GET /api/car-photo/{number} — serve car photo file
+app.MapGet("/api/car-photo/{number}", (string number) =>
+{
+    var normalized = CarDb.NormalizeNumber(number);
+    if (string.IsNullOrWhiteSpace(normalized)) return Results.NotFound();
+    var photoPath = Path.Combine(dataRoot, "car-photos", normalized + ".jpg");
+    if (!System.IO.File.Exists(photoPath)) return Results.NotFound();
+    return Results.File(photoPath, "image/jpeg");
+});
+
+// POST /api/car-card/{number}/photo — upload car photo
+app.MapPost("/api/car-card/{number}/photo", async (HttpRequest request, string number) =>
+{
+    var session = request.Query["session"].ToString();
+    var login = sessionStore.GetLogin(session);
+    var user = string.IsNullOrWhiteSpace(login) ? null : userDb.GetByLogin(login);
+    if (user == null) return Results.Text(JsonConvert.SerializeObject(new { status = "error", error = "FORBIDDEN" }), "application/json; charset=utf-8");
+
+    var normalized = CarDb.NormalizeNumber(number);
+    if (string.IsNullOrWhiteSpace(normalized))
+        return Results.Text(JsonConvert.SerializeObject(new { status = "error", error = "BAD_NUMBER" }), "application/json; charset=utf-8");
+
+    if (!request.HasFormContentType)
+        return Results.Text(JsonConvert.SerializeObject(new { status = "error", error = "NOT_FORM" }), "application/json; charset=utf-8");
+
+    var form = await request.ReadFormAsync();
+    var file = form.Files.FirstOrDefault();
+    if (file == null || file.Length == 0)
+        return Results.Text(JsonConvert.SerializeObject(new { status = "error", error = "NO_FILE" }), "application/json; charset=utf-8");
+
+    var photoDir = Path.Combine(dataRoot, "car-photos");
+    Directory.CreateDirectory(photoDir);
+    var photoPath = Path.Combine(photoDir, normalized + ".jpg");
+
+    using var stream = new FileStream(photoPath, FileMode.Create, FileAccess.Write);
+    await file.CopyToAsync(stream);
+
+    return Results.Text(JsonConvert.SerializeObject(new { status = "ok" }), "application/json; charset=utf-8");
+});
+
+// GET /api/car-card/{number}/routes — routes for this car
+app.MapGet("/api/car-card/{number}/routes", (HttpRequest request, string number) =>
+{
+    var session = request.Query["session"].ToString();
+    var login = sessionStore.GetLogin(session);
+    if (string.IsNullOrWhiteSpace(login)) return Results.Text(JsonConvert.SerializeObject(new { status = "error", error = "FORBIDDEN" }), "application/json; charset=utf-8");
+
+    var normalized = CarDb.NormalizeNumber(number);
+    var routes = routeDb.GetAll()
+        .Where(r => r.CarNumber.Equals(normalized, StringComparison.OrdinalIgnoreCase))
+        .OrderByDescending(r => r.Id)
+        .Select(r => new
+        {
+            id = r.Id,
+            created_at = r.CreatedAt,
+            arrived_at = r.ArrivedAt,
+            departed_at = r.DepartedAt,
+            from_location = r.FromLocation,
+            to_location = r.ToLocation,
+            status = r.Status,
+            driver_name = r.DriverName,
+            driver_surname = r.DriverSurname,
+            driver_login = r.DriverLogin,
+            pre_checkup = r.PreCheckupId.HasValue,
+            post_checkup = r.PostCheckupId.HasValue,
+        })
+        .ToArray();
+
+    return Results.Text(JsonConvert.SerializeObject(new { status = "ok", routes }), "application/json; charset=utf-8");
+});
+
+// ── End Car Card API ──────────────────────────────────────────────────────────
+
 // ── End Routes API ────────────────────────────────────────────────────────────
 
 app.MapGet("/", () => Results.Redirect("/driver-app/"));

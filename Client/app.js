@@ -665,6 +665,157 @@ function clearSelectedCar(){
 	get('posttrip_button').classList.add('inactive');
 }
 
+// ── Russian plate widget ──────────────────────────────────────────────────
+function renderRusPlate(plate) {
+  const p = (plate || "").trim().toUpperCase();
+  // Standard format: Л123ЛЛ99 or Л123ЛЛ199
+  const m = p.match(/^([А-ЯA-ZА-Я])(\d{3})([А-ЯA-Z]{2})(\d{2,3})$/);
+  if (m) {
+    const [, l1, digits, letters, region] = m;
+    return `<div class="rusPlate">
+      <div class="rusPlate__main">${l1}&thinsp;${digits}&thinsp;${letters}</div>
+      <div class="rusPlate__region">
+        <div class="rusPlate__regionNum">${region}</div>
+        <div class="rusPlate__rus">RUS</div>
+        <div class="rusPlate__flag"></div>
+      </div>
+    </div>`;
+  }
+  // Fallback
+  return `<div class="rusPlate"><div class="rusPlate__main" style="font-size:22px; letter-spacing:1px;">${p}</div></div>`;
+}
+
+// ── Car Card Page ─────────────────────────────────────────────────────────
+let _carCardNumber = "";
+let _carCardPrevPage = "cars";
+
+window._openCarCard = function(carNumber, fromPage) {
+  _carCardNumber = carNumber || "";
+  _carCardPrevPage = fromPage || "cars";
+  nextPage("carcard");
+};
+
+function initCarCardPage() {
+  const backBtn = document.getElementById("carCardBack");
+  if (backBtn) backBtn.onclick = () => nextPage(_carCardPrevPage);
+
+  const photoInput = document.getElementById("carCardPhotoInput");
+  const photoStatus = document.getElementById("carCardPhotoStatus");
+  if (photoInput) {
+    photoInput.onchange = async () => {
+      const file = photoInput.files?.[0];
+      if (!file) return;
+      photoStatus.textContent = "Загрузка...";
+      try {
+        const fd = new FormData();
+        fd.append("photo", file);
+        const sess = localStorage.getItem("session") || "";
+        const r = await fetch(endpoint + "/api/car-card/" + encodeURIComponent(_carCardNumber) + "/photo?session=" + encodeURIComponent(sess), {
+          method: "POST", body: fd, credentials: "same-origin"
+        });
+        const data = await r.json();
+        if (data?.status === "ok") {
+          photoStatus.textContent = "✓ Фото загружено";
+          loadCarCardPhoto();
+        } else {
+          photoStatus.textContent = "Ошибка загрузки";
+        }
+      } catch { photoStatus.textContent = "Ошибка загрузки"; }
+      photoInput.value = "";
+    };
+  }
+}
+
+function loadCarCardPhoto() {
+  const img = document.getElementById("carCardPhoto");
+  const placeholder = document.getElementById("carCardPhotoPlaceholder");
+  if (!img || !placeholder) return;
+  const url = endpoint + "/api/car-photo/" + encodeURIComponent(_carCardNumber) + "?t=" + Date.now();
+  const test = new Image();
+  test.onload = () => {
+    img.src = url;
+    img.classList.remove("hidden");
+    placeholder.classList.add("hidden");
+  };
+  test.onerror = () => {
+    img.classList.add("hidden");
+    placeholder.classList.remove("hidden");
+  };
+  test.src = url;
+}
+
+async function loadCarCard() {
+  if (!_carCardNumber) return;
+  const sess = localStorage.getItem("session") || "";
+  const _fmt = s => s ? s.slice(0,10).split('-').reverse().join('.') : '—';
+
+  // Load car info
+  try {
+    const r = await fetch(endpoint + "/api/car-card/" + encodeURIComponent(_carCardNumber) + "?session=" + encodeURIComponent(sess), { credentials: "same-origin", cache: "no-store" });
+    const data = await r.json();
+    if (data?.status === "ok" && data.car) {
+      const c = data.car;
+      // Plate
+      const plateWrap = document.getElementById("carCardPlateWrap");
+      if (plateWrap) plateWrap.innerHTML = renderRusPlate(c.number || _carCardNumber);
+      // Title
+      const title = document.getElementById("carCardTitle");
+      if (title) title.textContent = [c.brand, c.model].filter(Boolean).join(" ") || c.number;
+      // Meta
+      const meta = document.getElementById("carCardMeta");
+      if (meta) {
+        const rows = [];
+        if (c.current_location) rows.push(`<span>📍 <strong>${c.current_location}</strong></span>`);
+        if (c.last_mileage) {
+          const dateStr = c.last_mileage_date ? ` <span style="color:#94a3b8; font-size:12px;">(${_fmt(c.last_mileage_date)})</span>` : "";
+          rows.push(`<span>🔢 Пробег: <strong>${Number(c.last_mileage).toLocaleString("ru-RU")} км</strong>${dateStr}</span>`);
+        }
+        if (c.vin) rows.push(`<span>VIN: <span style="font-family:monospace; font-size:12px;">${c.vin}</span></span>`);
+        if (c.year) rows.push(`<span>Год: <strong>${c.year}</strong></span>`);
+        if (c.department) rows.push(`<span>Подразделение: <strong>${c.department}</strong></span>`);
+        if (c.responsible) rows.push(`<span>Ответственный: <strong>${c.responsible}</strong></span>`);
+        meta.innerHTML = rows.join("");
+      }
+      // Photo
+      loadCarCardPhoto();
+    }
+  } catch {}
+
+  // Load routes
+  const routesStatus = document.getElementById("carCardRoutesStatus");
+  const routesTable = document.getElementById("carCardRoutesTable");
+  const routesTbody = document.getElementById("carCardRoutesTbody");
+  try {
+    const r2 = await fetch(endpoint + "/api/car-card/" + encodeURIComponent(_carCardNumber) + "/routes?session=" + encodeURIComponent(sess), { credentials: "same-origin", cache: "no-store" });
+    const data2 = await r2.json();
+    const routes = Array.isArray(data2?.routes) ? data2.routes : [];
+    if (routesStatus) routesStatus.textContent = routes.length === 0 ? "Маршрутов нет" : "";
+    if (routesTable && routes.length > 0) {
+      routesTable.style.display = "";
+      routesTbody.innerHTML = routes.map(r => {
+        const driver = [r.driver_surname, r.driver_name].filter(Boolean).join(" ") || r.driver_login || "—";
+        const created = _fmt(r.created_at);
+        const arrived = r.arrived_at ? _fmt(r.arrived_at) : "—";
+        const statusLabel = r.status === "active"
+          ? `<span style="color:#f59e0b; font-weight:700;">В пути</span>`
+          : `<span style="color:#22c55e; font-weight:700;">Завершён</span>`;
+        const preChk = r.pre_checkup ? `<span style="color:#22c55e;">✓</span>` : `<span style="color:#e2e8f0;">—</span>`;
+        const postChk = r.post_checkup ? `<span style="color:#22c55e;">✓</span>` : `<span style="color:#e2e8f0;">—</span>`;
+        return `<tr>
+          <td style="padding:8px; border-top:1px solid rgba(226,232,240,0.8); font-size:13px;">${driver}</td>
+          <td style="padding:8px; border-top:1px solid rgba(226,232,240,0.8); font-size:13px;">${r.from_location || "—"}</td>
+          <td style="padding:8px; border-top:1px solid rgba(226,232,240,0.8); font-size:13px;">${r.to_location || "—"}</td>
+          <td style="padding:8px; border-top:1px solid rgba(226,232,240,0.8); font-size:12px; white-space:nowrap; color:#64748b;">${created}</td>
+          <td style="padding:8px; border-top:1px solid rgba(226,232,240,0.8); font-size:12px; white-space:nowrap; color:#64748b;">${arrived}</td>
+          <td style="padding:8px; border-top:1px solid rgba(226,232,240,0.8);">${statusLabel}</td>
+          <td style="padding:8px; border-top:1px solid rgba(226,232,240,0.8); text-align:center;">${preChk}</td>
+          <td style="padding:8px; border-top:1px solid rgba(226,232,240,0.8); text-align:center;">${postChk}</td>
+        </tr>`;
+      }).join("");
+    }
+  } catch { if (routesStatus) routesStatus.textContent = "Ошибка загрузки маршрутов"; }
+}
+
 function nextPage(name) {
 	document.querySelectorAll(".page").forEach(p => p.classList.remove("active"));
 	document.getElementById("page-" + name).classList.add("active");
@@ -672,6 +823,7 @@ function nextPage(name) {
 	if (name === "users")     refreshUsersAdminList?.();
 	if (name === "cars")      refreshCarsAdminList?.();
 	if (name === "locations") refreshLocationsAdminList?.();
+	if (name === "carcard")   loadCarCard();
 }
 
 async function apiGetUsers(){
@@ -992,7 +1144,7 @@ function initCarsAdminUi(){
 			const tr = document.createElement("tr");
 			tr.innerHTML = `
 				<td class="mono" style="padding:8px; border-top:1px solid rgba(226,232,240,0.8); font-size:12px; color:#64748b;">${c.id ?? ""}</td>
-				<td class="mono" style="padding:8px; border-top:1px solid rgba(226,232,240,0.8); font-size:13px;">${c.number || ""}</td>
+				<td class="mono" style="padding:8px; border-top:1px solid rgba(226,232,240,0.8); font-size:13px;"><span style="cursor:pointer; color:#0ea5e9; text-decoration:underline;" onclick="window._openCarCard('${c.number}','cars')">${c.number || ""}</span></td>
 				<td style="padding:8px; border-top:1px solid rgba(226,232,240,0.8); font-size:13px;">${c.brand || ""}</td>
 				<td class="mono" style="padding:8px; border-top:1px solid rgba(226,232,240,0.8); font-size:12px;">${c.vin || ""}</td>
 				<td style="padding:8px; border-top:1px solid rgba(226,232,240,0.8); font-size:12px; color:#0ea5e9;">${c.current_location || "—"}</td>
@@ -1115,6 +1267,7 @@ function initCarsAdminUi(){
 }
 
 initCarsAdminUi();
+initCarCardPage();
 
 {
 	const locs = initLocationsAdminUi({ endpoint, postRequest, get, onNavigate: nextPage });
@@ -1422,7 +1575,7 @@ initCarsAdminUi();
         const routeHtml = ar
           ? `<div class="routesCarCard__route">➜ ${ar.to_location}</div><div class="routesCarCard__driver">${ar.driver_name} ${ar.driver_surname}</div>`
           : "";
-        return `<div class="routesCarCard">
+        return `<div class="routesCarCard" style="cursor:pointer;" onclick="window._openCarCard('${c.car_number}','routes')">
           <div class="routesCarCard__number">${c.car_number}</div>
           <div class="routesCarCard__model">${model}</div>
           ${routeHtml}
