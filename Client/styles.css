@@ -2278,8 +2278,8 @@ body{
 .rcAvatar__img{
   width: 100%;
   height: 100%;
-  object-fit: contain;
-  padding: 4px;
+  object-fit: cover;
+  object-position: center;
 }
 
 .rcAvatar__fallback{
