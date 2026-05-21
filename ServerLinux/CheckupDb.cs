@@ -14,6 +14,19 @@ public sealed class CheckupDb
     {
         using var conn = Open();
         using var cmd = conn.CreateCommand();
+
+        // Таблица пробегов из пост-чекапов
+        cmd.CommandText = """
+            CREATE TABLE IF NOT EXISTS post_mileage (
+                id           INTEGER PRIMARY KEY AUTOINCREMENT,
+                submitted_at TEXT    NOT NULL,
+                car_number   TEXT,
+                car_id       TEXT,
+                mileage      TEXT
+            );
+            """;
+        cmd.ExecuteNonQuery();
+
         cmd.CommandText = """
             CREATE TABLE IF NOT EXISTS pre_checkups (
                 id               INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -160,32 +173,58 @@ public sealed class CheckupDb
         return conn;
     }
 
-    public (string? Mileage, string? Date) GetLastMileageByCarNumber(string carNumber, long? carId = null)
+    public long InsertPostMileage(string carNumber, string? carId, string? mileage, string submittedAt)
     {
-        var n = carNumber.Trim().ToUpperInvariant();
+        if (string.IsNullOrWhiteSpace(mileage)) return 0;
         using var conn = Open();
         using var cmd = conn.CreateCommand();
-        // Match by UPPER(car_number) for robustness, also by car_id as fallback
-        if (carId.HasValue && carId.Value > 0)
-        {
-            cmd.CommandText = """
-                SELECT mileage, submitted_at FROM pre_checkups
+        cmd.CommandText = """
+            INSERT INTO post_mileage (submitted_at, car_number, car_id, mileage)
+            VALUES ($at, $num, $cid, $mil);
+            SELECT last_insert_rowid();
+            """;
+        cmd.Parameters.AddWithValue("$at",  submittedAt);
+        cmd.Parameters.AddWithValue("$num", carNumber ?? "");
+        cmd.Parameters.AddWithValue("$cid", carId ?? (object)DBNull.Value);
+        cmd.Parameters.AddWithValue("$mil", mileage);
+        return (long)(cmd.ExecuteScalar() ?? 0L);
+    }
+
+    public (string? Mileage, string? Date) GetLastMileageByCarNumber(string carNumber, long? carId = null)
+    {
+        var n   = carNumber.Trim().ToUpperInvariant();
+        var cid = carId.HasValue && carId.Value > 0 ? carId.Value.ToString() : null;
+
+        // UNION pre_checkups + post_mileage, берём самую последнюю запись с пробегом
+        var sql = cid != null ? """
+            SELECT mileage, submitted_at FROM (
+                SELECT mileage, submitted_at, id FROM pre_checkups
                 WHERE (UPPER(car_number) = $num OR car_id = $cid)
                   AND mileage IS NOT NULL AND mileage != ''
-                ORDER BY id DESC LIMIT 1;
-                """;
-            cmd.Parameters.AddWithValue("$cid", carId.Value.ToString());
-        }
-        else
-        {
-            cmd.CommandText = """
-                SELECT mileage, submitted_at FROM pre_checkups
+                UNION ALL
+                SELECT mileage, submitted_at, id FROM post_mileage
+                WHERE (UPPER(car_number) = $num OR car_id = $cid)
+                  AND mileage IS NOT NULL AND mileage != ''
+            )
+            ORDER BY submitted_at DESC, id DESC LIMIT 1;
+            """ : """
+            SELECT mileage, submitted_at FROM (
+                SELECT mileage, submitted_at, id FROM pre_checkups
                 WHERE UPPER(car_number) = $num
                   AND mileage IS NOT NULL AND mileage != ''
-                ORDER BY id DESC LIMIT 1;
-                """;
-        }
+                UNION ALL
+                SELECT mileage, submitted_at, id FROM post_mileage
+                WHERE UPPER(car_number) = $num
+                  AND mileage IS NOT NULL AND mileage != ''
+            )
+            ORDER BY submitted_at DESC, id DESC LIMIT 1;
+            """;
+
+        using var conn = Open();
+        using var cmd  = conn.CreateCommand();
+        cmd.CommandText = sql;
         cmd.Parameters.AddWithValue("$num", n);
+        if (cid != null) cmd.Parameters.AddWithValue("$cid", cid);
         using var r = cmd.ExecuteReader();
         if (!r.Read()) return (null, null);
         return (r.IsDBNull(0) ? null : r.GetString(0), r.IsDBNull(1) ? null : r.GetString(1));

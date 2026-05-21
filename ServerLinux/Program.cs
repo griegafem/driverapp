@@ -882,6 +882,24 @@ app.MapPost("/api/post-checkup", async (HttpRequest request) =>
     try { driverApp.AddPostCheckUp(row); }
     finally { xlLock.Release(); }
 
+    // Сохраняем пробег + привязываем к маршруту
+    try
+    {
+        var postMileage = (string?)obj.mileage;
+        var postSubmittedAt = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
+        var postMileageId = checkupDb.InsertPostMileage(car.number, carRec?.Id.ToString(), postMileage, postSubmittedAt);
+        var postRouteIdStr = (string?)obj.route_id;
+        if (postMileageId > 0 && !string.IsNullOrWhiteSpace(postRouteIdStr)
+            && long.TryParse(postRouteIdStr, out var postLinkedRouteId) && postLinkedRouteId > 0)
+        {
+            routeDb.SetPostCheckup(postLinkedRouteId, postMileageId);
+        }
+    }
+    catch (Exception ex)
+    {
+        Console.WriteLine($"[post-checkup] save error: {ex.Message}");
+    }
+
     return Results.Text(JsonConvert.SerializeObject(new { status = "ok" }), "application/json; charset=utf-8");
 });
 

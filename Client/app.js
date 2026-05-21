@@ -2096,7 +2096,9 @@ get('sendPostCheckUp').onclick = async () => {
 	checkUpPostData.critical_info = get('criticalinfo_post').value;
 	checkUpPostData.date = new Date().toISOString();
 
-	const data = JSON.stringify({ data: checkUpPostData, session: session });
+	const postRouteId = localStorage.getItem("activeRouteId");
+	const postPayload = Object.assign({}, checkUpPostData, postRouteId ? { route_id: postRouteId } : {});
+	const data = JSON.stringify({ data: postPayload, session: session });
 
 	button.classList.add('inactive');
 	button.innerText = "Отправка...";
