@@ -1083,7 +1083,7 @@ app.MapGet("/api/car-card/{number}", (HttpRequest request, string number) =>
     var car = carDb.GetByNumber(number);
     if (car == null) return Results.Text(JsonConvert.SerializeObject(new { status = "error", error = "NOT_FOUND" }), "application/json; charset=utf-8");
 
-    var (mileage, mileageDate) = checkupDb.GetLastMileageByCarNumber(number);
+    var (mileage, mileageDate) = checkupDb.GetLastMileageByCarNumber(number, car.Id);
     var lastLocs = routeDb.GetCarLastLocations();
     lastLocs.TryGetValue(car.Id.ToString(), out var routeLoc);
     var location = !string.IsNullOrWhiteSpace(routeLoc) ? routeLoc : (car.CurrentLocation ?? "");

@@ -4,13 +4,13 @@
 <head>
 	<meta charset="UTF-8" name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 	<title>Осмотр авто</title>
-	<link rel="stylesheet" href="/driver-app/styles.css?v=20260507_20">
-	<link rel="modulepreload" href="/driver-app/app.js?v=20260507_20">
-	<link rel="modulepreload" href="/driver-app/js/api.js?v=20260507_20">
-	<link rel="modulepreload" href="/driver-app/js/dom.js?v=20260507_20">
-	<link rel="modulepreload" href="/driver-app/js/auth.js?v=20260507_20">
-	<link rel="modulepreload" href="/driver-app/js/carSelector.js?v=20260507_20">
-	<link rel="modulepreload" href="/driver-app/js/admin/locations.js?v=20260507_20">
+	<link rel="stylesheet" href="/driver-app/styles.css?v=20260507_21">
+	<link rel="modulepreload" href="/driver-app/app.js?v=20260507_21">
+	<link rel="modulepreload" href="/driver-app/js/api.js?v=20260507_21">
+	<link rel="modulepreload" href="/driver-app/js/dom.js?v=20260507_21">
+	<link rel="modulepreload" href="/driver-app/js/auth.js?v=20260507_21">
+	<link rel="modulepreload" href="/driver-app/js/carSelector.js?v=20260507_21">
+	<link rel="modulepreload" href="/driver-app/js/admin/locations.js?v=20260507_21">
 	<script>
 		// Optional override for API base URL (for prod/staging split).
 		// If empty/undefined, client will use current origin.
@@ -110,28 +110,26 @@
 	<div id="page-carcard" class="page" style="padding: 16px; margin-top: 50px; max-width: 900px; margin-left: auto; margin-right: auto;">
 		<button id="carCardBack" class="btn btn--ghost btn--sm" style="margin-bottom: 18px;">← Назад</button>
 
-		<!-- Header: plate + photo + info -->
+		<!-- Header: photo + info -->
 		<div class="carCardHeader inspCard">
-			<!-- Russian plate -->
-			<div id="carCardPlateWrap" style="margin-bottom: 16px;"></div>
-
 			<div class="carCardHeaderBody">
-				<!-- Photo -->
+				<!-- Photo with overlay upload button -->
 				<div class="carCardPhotoWrap" id="carCardPhotoWrap">
 					<img id="carCardPhoto" class="carCardPhoto hidden" src="" alt="Фото авто" />
 					<div id="carCardPhotoPlaceholder" class="carCardPhotoPlaceholder">
-						<span style="font-size:32px;">🚗</span>
+						<span style="font-size:36px;">🚗</span>
 						<span style="font-size:12px; color:#94a3b8; margin-top:4px;">Нет фото</span>
 					</div>
-					<label id="carCardPhotoUploadBtn" class="btn btn--ghost btn--sm carCardPhotoBtn" style="margin-top:8px; cursor:pointer;">
-						📷 Загрузить фото
+					<label class="carCardPhotoOverlayBtn" title="Загрузить фото">
+						📷
 						<input id="carCardPhotoInput" type="file" accept="image/*" style="display:none;" />
 					</label>
-					<div id="carCardPhotoStatus" style="font-size:12px; color:#64748b; min-height:16px; text-align:center;"></div>
+					<div id="carCardPhotoStatus" style="font-size:11px; color:#64748b; min-height:14px; text-align:center; margin-top:4px;"></div>
 				</div>
 
-				<!-- Info -->
+				<!-- Info: plate + title + meta -->
 				<div class="carCardInfo">
+					<div id="carCardPlateWrap" style="margin-bottom: 12px;"></div>
 					<div id="carCardTitle" class="carCardTitle"></div>
 					<div id="carCardMeta" class="carCardMeta"></div>
 				</div>
@@ -995,7 +993,7 @@
 	</div>
 
 	<script defer src="https://telegram.org/js/telegram-web-app.js"></script>
-	<script type="module" src="/driver-app/app.js?v=20260507_20"></script>
+	<script type="module" src="/driver-app/app.js?v=20260507_21"></script>
 </body>
 
 </html>

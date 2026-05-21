@@ -669,20 +669,35 @@ function clearSelectedCar(){
 function renderRusPlate(plate) {
   const p = (plate || "").trim().toUpperCase();
   // Standard format: Л123ЛЛ99 or Л123ЛЛ199
-  const m = p.match(/^([А-ЯA-ZА-Я])(\d{3})([А-ЯA-Z]{2})(\d{2,3})$/);
+  const m = p.match(/^([А-ЯA-Z])(\d{3})([А-ЯA-Z]{2})(\d{2,3})$/);
   if (m) {
     const [, l1, digits, letters, region] = m;
     return `<div class="rusPlate">
       <div class="rusPlate__main">${l1}&thinsp;${digits}&thinsp;${letters}</div>
       <div class="rusPlate__region">
         <div class="rusPlate__regionNum">${region}</div>
-        <div class="rusPlate__rus">RUS</div>
-        <div class="rusPlate__flag"></div>
+        <div class="rusPlate__rusflag">
+          <span class="rusPlate__rus">RUS</span>
+          <div class="rusPlate__flag"></div>
+        </div>
       </div>
     </div>`;
   }
   // Fallback
   return `<div class="rusPlate"><div class="rusPlate__main" style="font-size:22px; letter-spacing:1px;">${p}</div></div>`;
+}
+
+// Removes duplicate trailing words: "Volkswagen Multivan" + "Multivan" → "Volkswagen Multivan"
+function dedupCarTitle(brand, model) {
+  const b = (brand || "").trim();
+  const m = (model || "").trim();
+  if (!b) return m;
+  if (!m) return b;
+  // If brand already ends with model (case-insensitive), just return brand
+  if (b.toLowerCase().endsWith(m.toLowerCase())) return b;
+  // If model starts with brand, just return model
+  if (m.toLowerCase().startsWith(b.toLowerCase())) return m;
+  return b + " " + m;
 }
 
 // ── Car Card Page ─────────────────────────────────────────────────────────
@@ -758,9 +773,9 @@ async function loadCarCard() {
       // Plate
       const plateWrap = document.getElementById("carCardPlateWrap");
       if (plateWrap) plateWrap.innerHTML = renderRusPlate(c.number || _carCardNumber);
-      // Title
+      // Title (deduplicate brand+model, e.g. "Volkswagen Multivan Multivan" → "Volkswagen Multivan")
       const title = document.getElementById("carCardTitle");
-      if (title) title.textContent = [c.brand, c.model].filter(Boolean).join(" ") || c.number;
+      if (title) title.textContent = dedupCarTitle(c.brand, c.model) || c.number;
       // Meta
       const meta = document.getElementById("carCardMeta");
       if (meta) {
@@ -799,8 +814,8 @@ async function loadCarCard() {
         const statusLabel = r.status === "active"
           ? `<span style="color:#f59e0b; font-weight:700;">В пути</span>`
           : `<span style="color:#22c55e; font-weight:700;">Завершён</span>`;
-        const preChk = r.pre_checkup ? `<span style="color:#22c55e;">✓</span>` : `<span style="color:#e2e8f0;">—</span>`;
-        const postChk = r.post_checkup ? `<span style="color:#22c55e;">✓</span>` : `<span style="color:#e2e8f0;">—</span>`;
+        const preChk = r.pre_checkup ? `<span style="color:#22c55e; font-weight:700;">Да</span>` : `<span style="color:#cbd5e1;">Нет</span>`;
+        const postChk = r.post_checkup ? `<span style="color:#22c55e; font-weight:700;">Да</span>` : `<span style="color:#cbd5e1;">Нет</span>`;
         return `<tr>
           <td style="padding:8px; border-top:1px solid rgba(226,232,240,0.8); font-size:13px;">${driver}</td>
           <td style="padding:8px; border-top:1px solid rgba(226,232,240,0.8); font-size:13px;">${r.from_location || "—"}</td>
