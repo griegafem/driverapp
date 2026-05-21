@@ -707,6 +707,26 @@ let _carCardPrevPage = "cars";
 window._openCarCard = function(carNumber, fromPage) {
   _carCardNumber = carNumber || "";
   _carCardPrevPage = fromPage || "cars";
+
+  // Сбрасываем старые данные ДО перехода, чтобы не было вспышки чужой карточки
+  const plateWrap = document.getElementById("carCardPlateWrap");
+  const titleEl   = document.getElementById("carCardTitle");
+  const metaEl    = document.getElementById("carCardMeta");
+  const photoEl   = document.getElementById("carCardPhoto");
+  const photoPlaceholder = document.getElementById("carCardPhotoPlaceholder");
+  const routesTable = document.getElementById("carCardRoutesTable");
+  const routesTbody = document.getElementById("carCardRoutesTbody");
+  const routesStatus = document.getElementById("carCardRoutesStatus");
+
+  if (plateWrap)  plateWrap.innerHTML  = "";
+  if (titleEl)    titleEl.textContent  = "";
+  if (metaEl)     metaEl.innerHTML     = "";
+  if (photoEl)    { photoEl.src = ""; photoEl.classList.add("hidden"); }
+  if (photoPlaceholder) photoPlaceholder.classList.remove("hidden");
+  if (routesTable)  { routesTable.style.display = "none"; }
+  if (routesTbody)  routesTbody.innerHTML = "";
+  if (routesStatus) routesStatus.textContent = "";
+
   nextPage("carcard");
 };
 
