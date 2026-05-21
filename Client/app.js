@@ -1652,7 +1652,20 @@ initCarCardPage();
 
   function carAvatarHtml(carNumber, carBrand) {
     const letter = (carBrand || carNumber || "?").trim().charAt(0).toUpperCase();
-    const slug = carBrand ? (_BRAND_SLUGS[carBrand.trim().toLowerCase()] || null) : null;
+    let slug = null;
+    if (carBrand) {
+      const b = carBrand.trim().toLowerCase();
+      // Точное совпадение
+      slug = _BRAND_SLUGS[b] || null;
+      // Если не найдено — ищем ключ, с которого начинается строка бренда
+      if (!slug) {
+        // Сортируем по длине убывая, чтобы "mercedes-benz" победил "mercedes"
+        const sorted = Object.keys(_BRAND_SLUGS).sort((a, z) => z.length - a.length);
+        for (const key of sorted) {
+          if (b.startsWith(key)) { slug = _BRAND_SLUGS[key]; break; }
+        }
+      }
+    }
     const url  = slug ? `/driver-app/brandico/${slug}.png` : null;
     if (url) {
       return `<img class="rcAvatar__img" src="${url}" alt="${letter}"
