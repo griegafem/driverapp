@@ -1160,8 +1160,13 @@ app.MapGet("/api/car-card/{number}/routes", (HttpRequest request, string number)
     if (string.IsNullOrWhiteSpace(login)) return Results.Text(JsonConvert.SerializeObject(new { status = "error", error = "FORBIDDEN" }), "application/json; charset=utf-8");
 
     var normalized = CarDb.NormalizeNumber(number);
+    var carForRoutes = carDb.GetByNumber(number);
+    var carIdForRoutes = carForRoutes?.Id.ToString();
+
     var routes = routeDb.GetAll()
-        .Where(r => r.CarNumber.Equals(normalized, StringComparison.OrdinalIgnoreCase))
+        .Where(r =>
+            (!string.IsNullOrEmpty(normalized) && r.CarNumber.Equals(normalized, StringComparison.OrdinalIgnoreCase))
+            || (!string.IsNullOrEmpty(carIdForRoutes) && r.CarId == carIdForRoutes))
         .OrderByDescending(r => r.Id)
         .Select(r => new
         {
