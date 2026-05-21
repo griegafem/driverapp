@@ -1606,7 +1606,10 @@ initCarCardPage();
 
       const cards = colCars.map(c => {
         const ar = c.active_route;
-        const model = [c.car_brand, c.car_model].filter(Boolean).join(" ");
+        const brand = c.car_brand || "";
+        const mod   = c.car_model || "";
+        const model = brand && mod && !brand.toLowerCase().includes(mod.toLowerCase())
+          ? `${brand} ${mod}` : (brand || mod || "—");
         const isTransit = !!ar;
         const routeHtml = ar
           ? `<div class="rcInfo__route"><svg width="11" height="11" viewBox="0 0 12 12" fill="none" style="flex-shrink:0"><path d="M2 6h8M7 3l3 3-3 3" stroke="#d97706" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>${ar.to_location}</div>

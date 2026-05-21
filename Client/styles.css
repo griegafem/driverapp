@@ -1,5 +1,7 @@
 /* Официальный шрифт госномеров РФ */
 @import url('https://fonts.cdnfonts.com/css/road-numbers');
+/* Рукописный шрифт для бренда */
+@import url('https://fonts.googleapis.com/css2?family=Caveat:wght@700&display=swap');
 
 /* Prevent mobile overflow from padding/width math */
 *,
@@ -68,15 +70,14 @@ body{
 }
 
 .topbar__brand{
-  font-size: 21px;
-  font-weight: 900;
-  letter-spacing: -0.5px;
-  background: linear-gradient(135deg, #1e40af 0%, #0ea5e9 60%, #06b6d4 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-  text-shadow: none;
-  filter: drop-shadow(0 1px 6px rgba(14,165,233,0.18));
+  font-family: 'Caveat', cursive;
+  font-size: 26px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  color: #0f172a;
+  -webkit-text-fill-color: #0f172a;
+  background: none;
+  filter: none;
 }
 
 .topbar__title{
