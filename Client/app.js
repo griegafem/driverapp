@@ -1650,7 +1650,7 @@ initCarCardPage();
       "уаз":             "uaz.ru",
     };
     const domain = map[b] || null;
-    return domain ? `https://logo.clearbit.com/${domain}` : null;
+    return domain ? `https://www.google.com/s2/favicons?domain=${domain}&sz=128` : null;
   }
 
   function carBrandAvatarHtml(brand) {
@@ -1690,7 +1690,7 @@ initCarCardPage();
         const routeHtml = ar
           ? `<div class="rcInfo__route"><svg width="11" height="11" viewBox="0 0 12 12" fill="none" style="flex-shrink:0"><path d="M2 6h8M7 3l3 3-3 3" stroke="#d97706" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>${ar.to_location}</div>
              <div class="rcInfo__driver">${ar.driver_name} ${ar.driver_surname}</div>`
-          : `<div class="rcInfo__parked">На стоянке</div>`;
+          : ``;
         return `<div class="routesCarCard${isTransit ? " routesCarCard--transit" : ""}" onclick="window._openCarCard('${c.car_number}','routes')">
           <div class="rcAvatar">${carBrandAvatarHtml(c.car_brand)}</div>
           <div class="rcInfo">
