@@ -1082,6 +1082,7 @@ app.MapGet("/api/routes/board", (HttpRequest request) =>
         var currentLoc = !string.IsNullOrWhiteSpace(routeLoc)
             ? routeLoc
             : (c.CurrentLocation ?? "");
+        var carPhotoPath = Path.Combine(dataRoot, "car-photos", CarDb.NormalizeNumber(c.Number) + ".jpg");
         return new
         {
             car_id       = c.Id.ToString(),
@@ -1089,6 +1090,7 @@ app.MapGet("/api/routes/board", (HttpRequest request) =>
             car_brand    = c.Brand,
             car_model    = c.Model,
             current_location = currentLoc,
+            has_photo    = System.IO.File.Exists(carPhotoPath),
             active_route = active == null ? null : (object)RouteToObj(active),
         };
     }).ToArray();

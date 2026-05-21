@@ -1576,99 +1576,13 @@ initCarCardPage();
     }).join("");
   }
 
-  // ── Логотипы брендов авто (car-logos-dataset via jsDelivr CDN) ──
-  const _CDN = "https://cdn.jsdelivr.net/gh/filippofilip95/car-logos-dataset@master/logos/optimized";
-  function getCarBrandLogo(brand) {
-    if (!brand) return null;
-    const b = brand.trim().toLowerCase();
-    const map = {
-      "mercedes":        "mercedes-benz",
-      "mercedes-benz":   "mercedes-benz",
-      "мерседес":        "mercedes-benz",
-      "volvo":           "volvo",
-      "вольво":          "volvo",
-      "bmw":             "bmw",
-      "бмв":             "bmw",
-      "toyota":          "toyota",
-      "тойота":          "toyota",
-      "ford":            "ford",
-      "форд":            "ford",
-      "hyundai":         "hyundai",
-      "хёндай":          "hyundai",
-      "хундай":          "hyundai",
-      "kia":             "kia",
-      "киа":             "kia",
-      "volkswagen":      "volkswagen",
-      "vw":              "volkswagen",
-      "фольксваген":     "volkswagen",
-      "audi":            "audi",
-      "ауди":            "audi",
-      "renault":         "renault",
-      "рено":            "renault",
-      "peugeot":         "peugeot",
-      "пежо":            "peugeot",
-      "skoda":           "skoda",
-      "шкода":           "skoda",
-      "nissan":          "nissan",
-      "ниссан":          "nissan",
-      "mitsubishi":      "mitsubishi",
-      "мицубиси":        "mitsubishi",
-      "mazda":           "mazda",
-      "мазда":           "mazda",
-      "honda":           "honda",
-      "хонда":           "honda",
-      "subaru":          "subaru",
-      "субару":          "subaru",
-      "lexus":           "lexus",
-      "лексус":          "lexus",
-      "land rover":      "land-rover",
-      "landrover":       "land-rover",
-      "лэнд ровер":      "land-rover",
-      "range rover":     "land-rover",
-      "jeep":            "jeep",
-      "джип":            "jeep",
-      "chevrolet":       "chevrolet",
-      "шевроле":         "chevrolet",
-      "opel":            "opel",
-      "опель":           "opel",
-      "fiat":            "fiat",
-      "фиат":            "fiat",
-      "porsche":         "porsche",
-      "порше":           "porsche",
-      "scania":          "scania",
-      "скания":          "scania",
-      "man":             "man",
-      "ман":             "man",
-      "daf":             "daf",
-      "iveco":           "iveco",
-      "ивеко":           "iveco",
-      "citroen":         "citroen",
-      "ситроен":         "citroen",
-      "seat":            "seat",
-      "alfa romeo":      "alfa-romeo",
-      "dodge":           "dodge",
-      "infiniti":        "infiniti",
-      "инфинити":        "infiniti",
-      "acura":           "acura",
-      "cadillac":        "cadillac",
-      "lincoln":         "lincoln",
-      "buick":           "buick",
-      "gmc":             "gmc",
-      "tesla":           "tesla",
-    };
-    const slug = map[b] || null;
-    return slug ? `${_CDN}/${slug}.png` : null;
-  }
-
-  function carBrandAvatarHtml(brand) {
-    const url = getCarBrandLogo(brand);
-    const letter = (brand || "?").trim().charAt(0).toUpperCase();
-    if (url) {
-      return `<img class="rcAvatar__img" src="${url}" alt="${letter}"
-        onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
-        <span class="rcAvatar__fallback" style="display:none">${letter}</span>`;
-    }
-    return `<span class="rcAvatar__fallback">${letter}</span>`;
+  // ── Аватар машины: фото из карточки, fallback — буква ──
+  function carAvatarHtml(carNumber, carBrand) {
+    const letter = (carBrand || carNumber || "?").trim().charAt(0).toUpperCase();
+    const url = `/api/car-photo/${encodeURIComponent(carNumber)}`;
+    return `<img class="rcAvatar__img" src="${url}" alt="${letter}"
+      onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
+      <span class="rcAvatar__fallback" style="display:none">${letter}</span>`;
   }
 
   // ── Доска для администратора ──
@@ -1699,7 +1613,7 @@ initCarCardPage();
              <div class="rcInfo__driver">${ar.driver_name} ${ar.driver_surname}</div>`
           : ``;
         return `<div class="routesCarCard${isTransit ? " routesCarCard--transit" : ""}" onclick="window._openCarCard('${c.car_number}','routes')">
-          <div class="rcAvatar">${carBrandAvatarHtml(c.car_brand)}</div>
+          <div class="rcAvatar">${carAvatarHtml(c.car_number, c.car_brand)}</div>
           <div class="rcInfo">
             <div class="rcInfo__number">${c.car_number}</div>
             <div class="rcInfo__model">${model || "—"}</div>
