@@ -1576,6 +1576,94 @@ initCarCardPage();
     }).join("");
   }
 
+  // ── Логотипы брендов авто ──
+  function getCarBrandLogo(brand) {
+    if (!brand) return null;
+    const b = brand.trim().toLowerCase();
+    const map = {
+      "mercedes":        "mercedes-benz.com",
+      "mercedes-benz":   "mercedes-benz.com",
+      "мерседес":        "mercedes-benz.com",
+      "volvo":           "volvo.com",
+      "вольво":          "volvo.com",
+      "bmw":             "bmw.com",
+      "бмв":             "bmw.com",
+      "toyota":          "toyota.com",
+      "тойота":          "toyota.com",
+      "ford":            "ford.com",
+      "форд":            "ford.com",
+      "hyundai":         "hyundai.com",
+      "хёндай":          "hyundai.com",
+      "хундай":          "hyundai.com",
+      "kia":             "kia.com",
+      "киа":             "kia.com",
+      "volkswagen":      "volkswagen.com",
+      "vw":              "volkswagen.com",
+      "фольксваген":     "volkswagen.com",
+      "audi":            "audi.com",
+      "ауди":            "audi.com",
+      "renault":         "renault.com",
+      "рено":            "renault.com",
+      "peugeot":         "peugeot.com",
+      "пежо":            "peugeot.com",
+      "skoda":           "skoda-auto.com",
+      "шкода":           "skoda-auto.com",
+      "nissan":          "nissan.com",
+      "ниссан":          "nissan.com",
+      "mitsubishi":      "mitsubishi.com",
+      "мицубиси":        "mitsubishi.com",
+      "mazda":           "mazda.com",
+      "мазда":           "mazda.com",
+      "honda":           "honda.com",
+      "хонда":           "honda.com",
+      "subaru":          "subaru.com",
+      "субару":          "subaru.com",
+      "lexus":           "lexus.com",
+      "лексус":          "lexus.com",
+      "land rover":      "landrover.com",
+      "landrover":       "landrover.com",
+      "лэнд ровер":      "landrover.com",
+      "jeep":            "jeep.com",
+      "джип":            "jeep.com",
+      "chevrolet":       "chevrolet.com",
+      "шевроле":         "chevrolet.com",
+      "opel":            "opel.com",
+      "опель":           "opel.com",
+      "fiat":            "fiat.com",
+      "фиат":            "fiat.com",
+      "porsche":         "porsche.com",
+      "порше":           "porsche.com",
+      "scania":          "scania.com",
+      "скания":          "scania.com",
+      "man":             "man.eu",
+      "ман":             "man.eu",
+      "daf":             "daf.com",
+      "iveco":           "iveco.com",
+      "ивеко":           "iveco.com",
+      "kamaz":           "kamaz.ru",
+      "камаз":           "kamaz.ru",
+      "gaz":             "gazgroup.ru",
+      "газ":             "gazgroup.ru",
+      "lada":            "lada.ru",
+      "лада":            "lada.ru",
+      "uaz":             "uaz.ru",
+      "уаз":             "uaz.ru",
+    };
+    const domain = map[b] || null;
+    return domain ? `https://logo.clearbit.com/${domain}` : null;
+  }
+
+  function carBrandAvatarHtml(brand) {
+    const url = getCarBrandLogo(brand);
+    const letter = (brand || "?").trim().charAt(0).toUpperCase();
+    if (url) {
+      return `<img class="rcAvatar__img" src="${url}" alt="${letter}"
+        onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
+        <span class="rcAvatar__fallback" style="display:none">${letter}</span>`;
+    }
+    return `<span class="rcAvatar__fallback">${letter}</span>`;
+  }
+
   // ── Доска для администратора ──
   async function loadAdminBoard() {
     const boardWrap = document.getElementById("routesBoardWrap");
@@ -1598,19 +1686,27 @@ initCarCardPage();
       const cards = colCars.map(c => {
         const ar = c.active_route;
         const model = [c.car_brand, c.car_model].filter(Boolean).join(" ");
+        const isTransit = !!ar;
         const routeHtml = ar
-          ? `<div class="routesCarCard__route">➜ ${ar.to_location}</div><div class="routesCarCard__driver">${ar.driver_name} ${ar.driver_surname}</div>`
-          : "";
-        return `<div class="routesCarCard" style="cursor:pointer;" onclick="window._openCarCard('${c.car_number}','routes')">
-          <div class="routesCarCard__number">${c.car_number}</div>
-          <div class="routesCarCard__model">${model}</div>
-          ${routeHtml}
+          ? `<div class="rcInfo__route"><svg width="11" height="11" viewBox="0 0 12 12" fill="none" style="flex-shrink:0"><path d="M2 6h8M7 3l3 3-3 3" stroke="#d97706" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>${ar.to_location}</div>
+             <div class="rcInfo__driver">${ar.driver_name} ${ar.driver_surname}</div>`
+          : `<div class="rcInfo__parked">На стоянке</div>`;
+        return `<div class="routesCarCard${isTransit ? " routesCarCard--transit" : ""}" onclick="window._openCarCard('${c.car_number}','routes')">
+          <div class="rcAvatar">${carBrandAvatarHtml(c.car_brand)}</div>
+          <div class="rcInfo">
+            <div class="rcInfo__number">${c.car_number}</div>
+            <div class="rcInfo__model">${model || "—"}</div>
+            ${routeHtml}
+          </div>
         </div>`;
-      }).join("") || '<div style="color:#cbd5e1; font-size:12px; text-align:center; padding:10px 0;">—</div>';
+      }).join("") || '<div class="rcEmpty">—</div>';
 
       return `<div class="routesCol${col.transit ? " routesCol--transit" : ""}">
-        <div class="routesCol__title">${col.label} <span style="color:#94a3b8; font-weight:400;">(${colCars.length})</span></div>
-        ${cards}
+        <div class="routesCol__header">
+          <span class="routesCol__title">${col.label}</span>
+          <span class="routesCol__badge">${colCars.length}</span>
+        </div>
+        <div class="routesCol__body">${cards}</div>
       </div>`;
     }).join("");
   }
