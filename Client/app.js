@@ -1576,13 +1576,90 @@ initCarCardPage();
     }).join("");
   }
 
-  // ── Аватар машины: фото из карточки, fallback — буква ──
+  // ── Логотипы брендов из локальной папки /driver-app/brandico/ ──
+  const _BRAND_SLUGS = {
+    "mercedes":       "mercedes-benz",
+    "mercedes-benz":  "mercedes-benz",
+    "мерседес":       "mercedes-benz",
+    "volvo":          "volvo",
+    "вольво":         "volvo",
+    "bmw":            "bmw",
+    "бмв":            "bmw",
+    "toyota":         "toyota",
+    "тойота":         "toyota",
+    "ford":           "ford",
+    "форд":           "ford",
+    "hyundai":        "hyundai",
+    "хёндай":         "hyundai",
+    "хундай":         "hyundai",
+    "kia":            "kia",
+    "киа":            "kia",
+    "volkswagen":     "volkswagen",
+    "vw":             "volkswagen",
+    "фольксваген":    "volkswagen",
+    "audi":           "audi",
+    "ауди":           "audi",
+    "renault":        "renault",
+    "рено":           "renault",
+    "peugeot":        "peugeot",
+    "пежо":           "peugeot",
+    "skoda":          "skoda",
+    "шкода":          "skoda",
+    "nissan":         "nissan",
+    "ниссан":         "nissan",
+    "mitsubishi":     "mitsubishi",
+    "мицубиси":       "mitsubishi",
+    "mazda":          "mazda",
+    "мазда":          "mazda",
+    "honda":          "honda",
+    "хонда":          "honda",
+    "subaru":         "subaru",
+    "субару":         "subaru",
+    "lexus":          "lexus",
+    "лексус":         "lexus",
+    "land rover":     "land-rover",
+    "landrover":      "land-rover",
+    "range rover":    "land-rover",
+    "лэнд ровер":     "land-rover",
+    "jeep":           "jeep",
+    "джип":           "jeep",
+    "chevrolet":      "chevrolet",
+    "шевроле":        "chevrolet",
+    "opel":           "opel",
+    "опель":          "opel",
+    "fiat":           "fiat",
+    "фиат":           "fiat",
+    "porsche":        "porsche",
+    "порше":          "porsche",
+    "scania":         "scania",
+    "скания":         "scania",
+    "man":            "man",
+    "ман":            "man",
+    "daf":            "daf",
+    "iveco":          "iveco",
+    "ивеко":          "iveco",
+    "citroen":        "citroen",
+    "ситроен":        "citroen",
+    "seat":           "seat",
+    "alfa romeo":     "alfa-romeo",
+    "alfa-romeo":     "alfa-romeo",
+    "dodge":          "dodge",
+    "infiniti":       "infiniti",
+    "инфинити":       "infiniti",
+    "tesla":          "tesla",
+    "gmc":            "gmc",
+  };
+
   function carAvatarHtml(carNumber, carBrand) {
     const letter = (carBrand || carNumber || "?").trim().charAt(0).toUpperCase();
-    const url = `/api/car-photo/${encodeURIComponent(carNumber)}`;
-    return `<img class="rcAvatar__img" src="${url}" alt="${letter}"
-      onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
-      <span class="rcAvatar__fallback" style="display:none">${letter}</span>`;
+    const slug = carBrand ? (_BRAND_SLUGS[carBrand.trim().toLowerCase()] || null) : null;
+    const url  = slug ? `/driver-app/brandico/${slug}.png` : null;
+    if (url) {
+      return `<img class="rcAvatar__img" src="${url}" alt="${letter}"
+        onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
+        <span class="rcAvatar__fallback" style="display:none">${letter}</span>`;
+    }
+    return `<span class="rcAvatar__fallback">${letter}</span>`;
   }
 
   // ── Доска для администратора ──
