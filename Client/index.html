@@ -4,13 +4,13 @@
 <head>
 	<meta charset="UTF-8" name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 	<title>Осмотр авто</title>
-	<link rel="stylesheet" href="/driver-app/styles.css?v=20260507_26">
-	<link rel="modulepreload" href="/driver-app/app.js?v=20260507_26">
-	<link rel="modulepreload" href="/driver-app/js/api.js?v=20260507_26">
-	<link rel="modulepreload" href="/driver-app/js/dom.js?v=20260507_26">
-	<link rel="modulepreload" href="/driver-app/js/auth.js?v=20260507_26">
-	<link rel="modulepreload" href="/driver-app/js/carSelector.js?v=20260507_26">
-	<link rel="modulepreload" href="/driver-app/js/admin/locations.js?v=20260507_26">
+	<link rel="stylesheet" href="/driver-app/styles.css?v=20260507_27">
+	<link rel="modulepreload" href="/driver-app/app.js?v=20260507_27">
+	<link rel="modulepreload" href="/driver-app/js/api.js?v=20260507_27">
+	<link rel="modulepreload" href="/driver-app/js/dom.js?v=20260507_27">
+	<link rel="modulepreload" href="/driver-app/js/auth.js?v=20260507_27">
+	<link rel="modulepreload" href="/driver-app/js/carSelector.js?v=20260507_27">
+	<link rel="modulepreload" href="/driver-app/js/admin/locations.js?v=20260507_27">
 	<script>
 		// Optional override for API base URL (for prod/staging split).
 		// If empty/undefined, client will use current origin.
@@ -107,7 +107,7 @@
 	</div>
 
 	<!-- ── Карточка автомобиля ─────────────────────────────────────────────── -->
-	<div id="page-carcard" class="page" style="padding: 16px; margin-top: 50px; max-width: 900px; margin-left: auto; margin-right: auto;">
+	<div id="page-carcard" class="page" style="padding: 16px; max-width: 900px; margin-left: auto; margin-right: auto;">
 		<button id="carCardBack" class="btn btn--ghost btn--sm" style="margin-bottom: 18px;">← Назад</button>
 
 		<!-- Header: photo + info -->
@@ -165,7 +165,7 @@
 	</div>
 
 	<!-- ── Маршруты ─────────────────────────────────────────────────── -->
-	<div id="page-routes" class="page" style="margin-top: 50px; padding: 16px;">
+	<div id="page-routes" class="page" style="padding: 16px;">
 
 		<!-- Кнопка создать (водитель) -->
 		<div id="routesDriverHeader" class="hidden">
@@ -246,14 +246,14 @@
 
 	<!-- ── /Маршруты ──────────────────────────────────────────────── -->
 
-	<div id="page-reports" class="page" style="margin-top: 50px; padding: 16px;">
+	<div id="page-reports" class="page" style="padding: 16px;">
 		<button id="download_button" class="btn btn--secondary" style="width:100%; margin-bottom:10px;">Скачать таблицы</button>
 		<button id="pre_report_button" class="btn btn--secondary" style="width:100%; margin-bottom:10px;">Открыть отчёт до поездки</button>
 		<button id="post_report_button" class="btn btn--secondary" style="width:100%; margin-bottom:10px;">Открыть отчёт по прибытии</button>
 		<button id="back_report_button" class="btn btn--ghost" style="width:100%;">← Назад</button>
 	</div>
 
-	<div id="page-help" class="page" style="margin-top: 50px;">
+	<div id="page-help" class="page" style="">
 		<button id="tg_button" class="def_button">Telegram</button>
 		<button id="max_button" class="def_button">Макс</button>
 		<button id="email_button" class="def_button">Email</button>
@@ -261,7 +261,7 @@
 		<div id="toast" style="opacity: 0; font-family: Roboto; text-align: center;" class="smooth">Email скопирован MYGaluev@mail.ru</div>
 	</div>
 
-	<div id="page-users" class="page" style="margin-top: 50px;">
+	<div id="page-users" class="page" style="">
 		<div class="inspCard">
 			<h3 class="inspCard__title">Пользователи</h3>
 			<div class="photoHelp" style="margin-bottom: 10px;">Доступно только администратору.</div>
@@ -288,7 +288,7 @@
 		</div>
 	</div>
 
-	<div id="page-cars" class="page" style="margin-top: 50px;">
+	<div id="page-cars" class="page" style="">
 		<div class="inspCard">
 			<h3 class="inspCard__title">Автомобили</h3>
 			<div id="carsStatus" class="photoHelp" style="margin: 6px 0 12px 0;"></div>
@@ -316,7 +316,7 @@
 		</div>
 	</div>
 
-	<div id="page-locations" class="page" style="margin-top: 50px;">
+	<div id="page-locations" class="page" style="">
 		<div class="inspCard">
 			<h3 class="inspCard__title">Локации</h3>
 			<div id="locationsStatus" class="photoHelp" style="margin: 6px 0 12px 0;"></div>
@@ -533,7 +533,7 @@
 	</div>
 	
     <!-- осмотр -->
-	<div id="page-pretrip" class="page" style="margin-top: 50px;">
+	<div id="page-pretrip" class="page" style="">
 
 		<!-- ШАГ 1: Геолокация, фото авто, кузов, колёса, салон -->
 		<div id="pt1">
@@ -849,7 +849,7 @@
 	</div>
 
 	 <!-- осмотр по прибытии -->
-	<div id="page-posttrip" class="page " style="margin-top: 50px;">
+	<div id="page-posttrip" class="page " style="">
 		<button id="posttripBack" class="btn btn--ghost btn--sm" type="button" style="margin: 0 0 12px 0; width: fit-content;">
 			← Назад
 		</button>
@@ -946,7 +946,7 @@
 	</div>
 	
     <!-- фото -->
-	<div id="page-photo" class="page" style="margin-top: 50px;">
+	<div id="page-photo" class="page" style="">
 		<div style="font-family: Roboto;">Сделайте фото</div>
 		<input id="cameraInput" type="file" accept="image/*" capture="environment" hidden>
 		<video id="video" autoplay playsinline style="display: none; width: 100%;"></video>
@@ -959,7 +959,7 @@
 	</div>
 	
     <!-- геолокация -->
-	<div id="page-geo" class="page" style="margin-top: 50px;">
+	<div id="page-geo" class="page" style="">
 		<h3>Геолокация</h3>
 		<button id="getLocation" class="def_button">Получить геолокацию</button>
 		<div id="coords"></div>
@@ -993,7 +993,7 @@
 	</div>
 
 	<script defer src="https://telegram.org/js/telegram-web-app.js"></script>
-	<script type="module" src="/driver-app/app.js?v=20260507_26"></script>
+	<script type="module" src="/driver-app/app.js?v=20260507_27"></script>
 </body>
 
 </html>
