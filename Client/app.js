@@ -805,8 +805,15 @@ async function loadCarCard() {
     const data2 = await r2.json();
     const routes = Array.isArray(data2?.routes) ? data2.routes : [];
     if (routesStatus) routesStatus.textContent = routes.length === 0 ? "Маршрутов нет" : "";
+    if (routesTable) {
+      if (routes.length > 0) {
+        routesTable.style.display = "";
+      } else {
+        routesTable.style.display = "none";
+        if (routesTbody) routesTbody.innerHTML = "";
+      }
+    }
     if (routesTable && routes.length > 0) {
-      routesTable.style.display = "";
       routesTbody.innerHTML = routes.map(r => {
         const driver = [r.driver_surname, r.driver_name].filter(Boolean).join(" ") || r.driver_login || "—";
         const created = _fmt(r.created_at);
@@ -1457,6 +1464,10 @@ initCarCardPage();
         // Если нажали «Создать» — предлагаем чек-ап перед выездом
         if (withCheckup && res.route?.id) {
           localStorage.setItem("activeRouteId", String(res.route.id));
+          // Авто-заполнение авто для чекапа
+          if (car.plateNumber) {
+            selectCar({ number: car.plateNumber, brand: car.brand || "", model: car.model || "" });
+          }
           nextPage("pretrip");
         }
       } else if (res?.error === "CAR_BUSY") {
@@ -1833,9 +1844,16 @@ get('panelErrorSwitchPre')?.addEventListener('change', () => {
 	get('photoBlock_panel_pre')?.classList.toggle('hidden', !errOn);
 });
 
-get('osago_date')?.addEventListener('input', () => {
+get('osago_date')?.addEventListener('input', (e) => {
 	const el = get('osago_date');
-	el.value = el.value.replace(/[^\d.]/g, '');
+	// Keep only digits
+	let digits = el.value.replace(/\D/g, '');
+	// Auto-insert dots: DD.MM.YYYY
+	let masked = '';
+	if (digits.length > 0) masked += digits.slice(0, 2);
+	if (digits.length > 2) masked += '.' + digits.slice(2, 4);
+	if (digits.length > 4) masked += '.' + digits.slice(4, 8);
+	el.value = masked;
 	checkUpPreData.osago_date = el.value || null;
 });
 
@@ -1931,7 +1949,9 @@ function collectLatestFields() {
 
 async function doSubmitPreCheckup() {
 	collectLatestFields();
-	const data = JSON.stringify({ data: checkUpPreData, session: session });
+	const routeIdForLink = localStorage.getItem("activeRouteId");
+	const payload = Object.assign({}, checkUpPreData, routeIdForLink ? { route_id: routeIdForLink } : {});
+	const data = JSON.stringify({ data: payload, session: session });
 	const btn = get('sendPreCheckUp');
 	const defaultLabel = "Завершить осмотр";
 	btn.classList.add('inactive');

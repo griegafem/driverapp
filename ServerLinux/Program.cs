@@ -745,7 +745,7 @@ app.MapPost("/api/pre-checkup", async (HttpRequest request) =>
 
     try
     {
-        checkupDb.Insert(new CheckupDb.PreCheckupRecord
+        var checkupId = checkupDb.Insert(new CheckupDb.PreCheckupRecord
         {
             SubmittedAt       = submittedAt,
             UserLogin         = login,
@@ -795,8 +795,15 @@ app.MapPost("/api/pre-checkup", async (HttpRequest request) =>
             PhotoOfDay        = pDay,
             PhotoDashboard    = pDash,
         });
+        // Привязываем чекап к маршруту если route_id передан
+        var routeIdStr = (string?)obj.route_id;
+        if (!string.IsNullOrWhiteSpace(routeIdStr) && long.TryParse(routeIdStr, out var linkedRouteId) && linkedRouteId > 0)
+            routeDb.SetPreCheckup(linkedRouteId, checkupId);
     }
-    catch { }
+    catch (Exception ex)
+    {
+        Console.WriteLine($"[pre-checkup] insert error: {ex.Message}");
+    }
 
     return Results.Text(JsonConvert.SerializeObject(new { status = "ok" }), "application/json; charset=utf-8");
 });
