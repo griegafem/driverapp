@@ -1789,7 +1789,8 @@ body{
 
   @font-face {
     font-family: 'Roboto';
-    src: url('./Roboto-Medium.ttf?v=20260703');
+    src: url('./Roboto-Medium.woff2?v=20260703') format('woff2'),
+         url('./Roboto-Medium.ttf?v=20260703') format('truetype');
     font-weight: normal;
     font-style: normal;
     font-display: swap;
