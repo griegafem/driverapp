@@ -336,7 +336,7 @@ body{
   bottom: 40px;
   width: min(70vw, 1200px);
   height: min(720px, 80vh);
-  background: url("./assets/login-bg.png") right bottom / contain no-repeat;
+  background: url("./assets/login-bg.png?v=20260703") right bottom / contain no-repeat;
   opacity: 0.15;
   pointer-events: none;
   z-index: 0;
@@ -1788,17 +1788,11 @@ body{
   }
 
   @font-face {
-    font-family: 'Lobster';
-    src: url('./lobster-regular.ttf');
-    font-weight: normal;
-    font-style: normal;
-  }
-
-  @font-face {
     font-family: 'Roboto';
-    src: url('./Roboto-Medium.ttf');
+    src: url('./Roboto-Medium.ttf?v=20260703');
     font-weight: normal;
     font-style: normal;
+    font-display: swap;
   }
 
   #carList::-webkit-scrollbar {
