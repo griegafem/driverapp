@@ -1,4 +1,4 @@
-const V = "v20260703_03";
+const V = "v20260703_04";
 const STATIC = [
   "/driver-app/",
   "/driver-app/styles.css?v=20260703_2",
@@ -29,14 +29,15 @@ self.addEventListener("activate", e => {
 
 self.addEventListener("fetch", e => {
   const url = new URL(e.request.url);
-  // Не кэшируем API-запросы
+  // Пропускаем cross-origin запросы (шрифты CDN, Google Fonts и т.д.)
+  if (url.origin !== self.location.origin) return;
+  // Пропускаем API-запросы
   if (url.pathname.startsWith("/api/")) return;
   e.respondWith(
     caches.match(e.request).then(cached => {
       if (cached) return cached;
       return fetch(e.request).then(res => {
-        // Кэшируем только успешные ответы на GET-запросы нашего домена
-        if (res.ok && e.request.method === "GET" && url.origin === self.location.origin) {
+        if (res.ok && e.request.method === "GET") {
           const clone = res.clone();
           caches.open(V).then(c => c.put(e.request, clone));
         }
