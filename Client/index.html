@@ -13,7 +13,7 @@
 	</style>
 	<link rel="stylesheet" href="/driver-app/styles.css?v=20260703_2" media="print" onload="this.media='all'">
 	<noscript><link rel="stylesheet" href="/driver-app/styles.css?v=20260703_2"></noscript>
-	<link rel="modulepreload" href="/driver-app/app.js?v=20260703_01">
+	<link rel="modulepreload" href="/driver-app/app.js?v=20260703_02">
 	<link rel="modulepreload" href="/driver-app/js/api.js?v=20260703_01">
 	<link rel="modulepreload" href="/driver-app/js/dom.js?v=20260703_01">
 	<link rel="modulepreload" href="/driver-app/js/auth.js?v=20260703_01">
@@ -22,6 +22,7 @@
 	<script>
 		window.__API_BASE__ = window.__API_BASE__ || "";
 		if (!localStorage.getItem('session')) window.location.replace('/login');
+		if ('serviceWorker' in navigator) navigator.serviceWorker.register('/driver-app/sw.js').catch(()=>{});
 	</script>
 </head>
 
@@ -94,7 +95,7 @@
 						</div>
 					</div>
 				</div>
-				<img class="vehicleCard__art" src="/driver-app/assets/car-illustration.png?v=20260703" alt="" aria-hidden="true" />
+				<img class="vehicleCard__art" src="/driver-app/assets/car-illustration.webp?v=20260703" alt="" aria-hidden="true" />
 				<div class="vehicleCard__actions">
 					<button id="carSelectClear" class="btn btn--ghost btn--sm hidden" type="button">Убрать</button>
 				</div>
@@ -999,7 +1000,7 @@
 	</div>
 
 	<script>document.querySelector('link[rel=stylesheet]').addEventListener('load',function(){var s=document.getElementById('__splash');if(s)s.style.display='none';});</script>
-	<script type="module" src="/driver-app/app.js?v=20260703_01"></script>
+	<script type="module" src="/driver-app/app.js?v=20260703_02"></script>
 </body>
 
 </html>
