@@ -20,20 +20,9 @@ document.addEventListener(
 	true,
 );
 
-const tg = window.Telegram?.WebApp;
-
-try { tg?.expand?.(); } catch { }
-
-/** User-visible text for failed checkup submit (Telegram showAlert historically showed title-only if message was empty). */
 function showSubmitError(text) {
 	let body = String(text || "Не удалось отправить отчёт. Попробуйте снова.");
 	if (body.length > 350) body = body.slice(0, 347) + "…";
-	try {
-		if (tg && typeof tg.showAlert === "function") {
-			tg.showAlert(body);
-			return;
-		}
-	} catch { }
 	alert(body);
 }
 
@@ -126,9 +115,7 @@ const _carsPromise = fetch(endpoint + "/api/cars", { credentials: "same-origin",
 let session = localStorage.getItem("session") || null;
 let check = false;
 
-var user = tg?.initDataUnsafe?.user;
-
-user = null;
+var user = null;
 
 //const canvas = document.getElementById("canvas");
 const snap = document.getElementById("snap");
@@ -2119,13 +2106,8 @@ async function doSubmitPreCheckup() {
 			return;
 		}
 		btn.innerText = "Отчёт отправлен!";
-		if (tg && tg.platform && tg.platform !== 'unknown') {
-			tg.showAlert("Осмотр успешно отправлен");
-			setTimeout(() => { tg.close(); }, 1500);
-		} else {
-			alert("Осмотр успешно отправлен");
-			setTimeout(() => { location.reload(); }, 1500);
-		}
+		alert("Осмотр успешно отправлен");
+		setTimeout(() => { location.reload(); }, 1500);
 	} catch (err) {
 		showSubmitError(formatSubmitFailure(err, null));
 		btn.innerText = defaultLabel;
@@ -2184,13 +2166,7 @@ sliderGradient(get('slider_fuel'), 50);
 
 get('download_button').onclick = () => {
 	var url = endpoint + "/api/get-tables?l=" + access_key;
-
-    if (tg && tg.platform && tg.platform !== 'unknown') {
-        tg.openLink(url);
-    } else {
-        window.open(url, '_blank');
-    }
-
+	window.open(url, '_blank');
 	get('download_button').classList.add('inactive');
 }
 
@@ -2200,23 +2176,11 @@ get('reports_button').onclick = () => {
 }
 
 get('pre_report_button').onclick = () => {
-	var url = endpoint + "/driver-app/pre-checkups";
-
-    if (tg && tg.platform && tg.platform !== 'unknown') {
-        tg.openLink(url);
-    } else {
-        window.open(url, '_blank');
-    }
+	window.open(endpoint + "/driver-app/pre-checkups", '_blank');
 }
 
 get('post_report_button').onclick = () => {
-	var url = endpoint + "/driver-app/post-checkups";
-
-    if (tg && tg.platform && tg.platform !== 'unknown') {
-        tg.openLink(url);
-    } else {
-        window.open(url, '_blank');
-    }
+	window.open(endpoint + "/driver-app/post-checkups", '_blank');
 }
 
 get('back_report_button').onclick = () => {
@@ -2275,13 +2239,8 @@ get('sendPostCheckUp').onclick = async () => {
 			localStorage.removeItem("activeRouteToLocation");
 		}
 
-		if (tg && tg.platform && tg.platform !== 'unknown') {
-			tg.showAlert("Осмотр успешно отправлен");
-			setTimeout(() => { tg.close(); }, 1500);
-		} else {
-			alert("Осмотр успешно отправлен");
-			setTimeout(() => { location.reload(); }, 1500);
-		}
+		alert("Осмотр успешно отправлен");
+		setTimeout(() => { location.reload(); }, 1500);
 	} catch (err) {
 		showSubmitError(formatSubmitFailure(err, null));
 		button.innerText = defaultLabel;
@@ -2297,23 +2256,11 @@ get('damageSwitchPost').onchange = () => {
 }
 
 get('tg_button').onclick = () => {
-	var url = "https://t.me/MYGaluev"; // @MYGaluev
-
-    if (tg && tg.platform && tg.platform !== 'unknown') {
-        tg.openLink(url);
-    } else {
-        window.open(url, '_blank');
-    }
+	window.open("https://t.me/MYGaluev", '_blank');
 }
 
 get('max_button').onclick = () => {
-	var url = "https://max.ru/u/f9LHodD0cOJ3DcJeZVA5I03gITNYuxRVnfnsgHIzIhWxJgHyo7Eu_UiJOM0";
-
-    if (tg && tg.platform && tg.platform !== 'unknown') {
-        tg.openLink(url);
-    } else {
-        window.open(url, '_blank');
-    }
+	window.open("https://max.ru/u/f9LHodD0cOJ3DcJeZVA5I03gITNYuxRVnfnsgHIzIhWxJgHyo7Eu_UiJOM0", '_blank');
 }
 
 get('email_button').onclick = () => {
