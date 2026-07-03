@@ -10,11 +10,17 @@ public sealed class CarDb
         _dbPath = dbPath;
     }
 
+    public string DbPath => _dbPath;
+
     private string ConnString => new SqliteConnectionStringBuilder
     {
         DataSource = _dbPath,
         ForeignKeys = true,
         Mode = SqliteOpenMode.ReadWriteCreate,
+        // Important: if the DB file is replaced on disk (e.g. import tool),
+        // connection pooling may keep an open handle to the old inode and serve stale data.
+        // Disabling pooling ensures the process always reads the current file contents.
+        Pooling = false,
         Cache = SqliteCacheMode.Shared
     }.ToString();
 
@@ -29,6 +35,7 @@ public sealed class CarDb
         public string Year { get; set; } = "";
         public string Department { get; set; } = "";
         public string Responsible { get; set; } = "";
+        public string CurrentLocation { get; set; } = "";
     }
 
     public void EnsureCreatedAndSeed()
@@ -48,11 +55,21 @@ CREATE TABLE IF NOT EXISTS cars (
   vin TEXT NOT NULL DEFAULT '',
   year TEXT NOT NULL DEFAULT '',
   department TEXT NOT NULL DEFAULT '',
-  responsible TEXT NOT NULL DEFAULT ''
+  responsible TEXT NOT NULL DEFAULT '',
+  current_location TEXT NOT NULL DEFAULT ''
 );
 """;
             cmd.ExecuteNonQuery();
         }
+
+        // Migration: add current_location column to existing databases
+        try
+        {
+            using var mig = conn.CreateCommand();
+            mig.CommandText = "ALTER TABLE cars ADD COLUMN current_location TEXT NOT NULL DEFAULT '';";
+            mig.ExecuteNonQuery();
+        }
+        catch { /* column already exists — ignore */ }
 
         if (Count() == 0)
         {
@@ -101,7 +118,7 @@ CREATE TABLE IF NOT EXISTS cars (
 
         using var cmd = conn.CreateCommand();
         cmd.CommandText = """
-SELECT id, number, brand, model, color, vin, year, department, responsible
+SELECT id, number, brand, model, color, vin, year, department, responsible, current_location
 FROM cars
 ORDER BY number;
 """;
@@ -121,6 +138,7 @@ ORDER BY number;
                 Year = r.GetString(6),
                 Department = r.GetString(7),
                 Responsible = r.GetString(8),
+                CurrentLocation = r.GetString(9),
             });
         }
         return list.ToArray();
@@ -133,7 +151,7 @@ ORDER BY number;
         conn.Open();
         using var cmd = conn.CreateCommand();
         cmd.CommandText = """
-SELECT id, number, brand, model, color, vin, year, department, responsible
+SELECT id, number, brand, model, color, vin, year, department, responsible, current_location
 FROM cars
 WHERE id = $id
 LIMIT 1;
@@ -152,6 +170,7 @@ LIMIT 1;
             Year = r.GetString(6),
             Department = r.GetString(7),
             Responsible = r.GetString(8),
+            CurrentLocation = r.GetString(9),
         };
     }
 
@@ -163,7 +182,7 @@ LIMIT 1;
         conn.Open();
         using var cmd = conn.CreateCommand();
         cmd.CommandText = """
-SELECT id, number, brand, model, color, vin, year, department, responsible
+SELECT id, number, brand, model, color, vin, year, department, responsible, current_location
 FROM cars
 WHERE number = $number
 LIMIT 1;
@@ -182,6 +201,7 @@ LIMIT 1;
             Year = r.GetString(6),
             Department = r.GetString(7),
             Responsible = r.GetString(8),
+            CurrentLocation = r.GetString(9),
         };
     }
 
@@ -205,7 +225,8 @@ UPDATE cars SET
   vin = $vin,
   year = $year,
   department = $department,
-  responsible = $responsible
+  responsible = $responsible,
+  current_location = $current_location
 WHERE id = $id;
 """;
             upd.Parameters.AddWithValue("$id", c.Id);
@@ -217,6 +238,7 @@ WHERE id = $id;
             upd.Parameters.AddWithValue("$year", (c.Year ?? "").Trim());
             upd.Parameters.AddWithValue("$department", (c.Department ?? "").Trim());
             upd.Parameters.AddWithValue("$responsible", (c.Responsible ?? "").Trim());
+            upd.Parameters.AddWithValue("$current_location", (c.CurrentLocation ?? "").Trim());
 
             try
             {
@@ -231,8 +253,8 @@ WHERE id = $id;
 
         using var cmd = conn.CreateCommand();
         cmd.CommandText = """
-INSERT INTO cars (number, brand, model, color, vin, year, department, responsible)
-VALUES ($number, $brand, $model, $color, $vin, $year, $department, $responsible)
+INSERT INTO cars (number, brand, model, color, vin, year, department, responsible, current_location)
+VALUES ($number, $brand, $model, $color, $vin, $year, $department, $responsible, $current_location)
 ON CONFLICT(number) DO UPDATE SET
   brand = excluded.brand,
   model = excluded.model,
@@ -240,7 +262,8 @@ ON CONFLICT(number) DO UPDATE SET
   vin = excluded.vin,
   year = excluded.year,
   department = excluded.department,
-  responsible = excluded.responsible;
+  responsible = excluded.responsible,
+  current_location = excluded.current_location;
 """;
         cmd.Parameters.AddWithValue("$number", number);
         cmd.Parameters.AddWithValue("$brand", (c.Brand ?? "").Trim());
@@ -250,6 +273,20 @@ ON CONFLICT(number) DO UPDATE SET
         cmd.Parameters.AddWithValue("$year", (c.Year ?? "").Trim());
         cmd.Parameters.AddWithValue("$department", (c.Department ?? "").Trim());
         cmd.Parameters.AddWithValue("$responsible", (c.Responsible ?? "").Trim());
+        cmd.Parameters.AddWithValue("$current_location", (c.CurrentLocation ?? "").Trim());
+        cmd.ExecuteNonQuery();
+    }
+
+    public void UpdateLocation(string carNumber, string location)
+    {
+        var n = NormalizeNumber(carNumber);
+        if (string.IsNullOrWhiteSpace(n)) return;
+        using var conn = new SqliteConnection(ConnString);
+        conn.Open();
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = "UPDATE cars SET current_location = $loc WHERE number = $number;";
+        cmd.Parameters.AddWithValue("$number", n);
+        cmd.Parameters.AddWithValue("$loc", (location ?? "").Trim());
         cmd.ExecuteNonQuery();
     }
 

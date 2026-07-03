@@ -8,6 +8,14 @@ using System.Text;
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddRouting();
+builder.Services.AddResponseCompression(o =>
+{
+    o.EnableForHttps = true;
+    o.MimeTypes = Microsoft.AspNetCore.ResponseCompression.ResponseCompressionDefaults.MimeTypes.Concat(new[]
+    {
+        "application/javascript", "text/css", "text/html", "application/json", "image/svg+xml"
+    });
+});
 
 var app = builder.Build();
 
@@ -45,6 +53,9 @@ driverApp.SetCheckUpTable(Path.Combine(dataRoot, "checkups.xlsx"));
 driverApp.SetPostCheckUpTable(Path.Combine(dataRoot, "post_checkups.xlsx"));
 driverApp.SetRandomTable(Path.Combine(dataRoot, "random.xlsx"));
 
+// ClosedXML workbooks are not thread-safe: guard all read/write operations with this lock.
+var xlLock = new SemaphoreSlim(1, 1);
+
 var userDb = new UserDb(Path.Combine(dataRoot, "users.db"));
 userDb.EnsureCreatedAndSeed();
 var sessionStore = new SessionStore(Path.Combine(dataRoot, "sessionstorage"));
@@ -54,6 +65,23 @@ var carDb = new CarDb(Path.Combine(dataRoot, "cars.db"));
 carDb.EnsureCreatedAndSeed();
 carDb.SeedFromJsonFile(Path.Combine(dataRoot, "seed", "cars.json"));
 TryMigrateCarsFromExcelAndDelete(dataRoot, carDb);
+
+var locationDb = new LocationDb(Path.Combine(dataRoot, "locations.db"));
+locationDb.EnsureCreatedAndSeed();
+
+var checkupDb = new CheckupDb(Path.Combine(dataRoot, "checkups.db"));
+
+var routeDb = new RoutesDb(Path.Combine(dataRoot, "routes.db"));
+
+app.UseResponseCompression();
+
+// Return JSON error instead of empty 500 on unhandled exceptions.
+app.UseExceptionHandler(errApp => errApp.Run(async ctx =>
+{
+    ctx.Response.StatusCode = 500;
+    ctx.Response.ContentType = "application/json; charset=utf-8";
+    await ctx.Response.WriteAsync(JsonConvert.SerializeObject(new { status = "error", error = "SERVER_ERROR" }));
+}));
 
 // Health
 app.MapGet("/test", () => Results.Text("OK"));
@@ -174,14 +202,30 @@ if (Directory.Exists(clientDir))
     app.UseStaticFiles(new StaticFileOptions
     {
         FileProvider = new PhysicalFileProvider(clientDir),
-        RequestPath = "/driver-app"
+        RequestPath = "/driver-app",
+        OnPrepareResponse = ctx =>
+        {
+            var qs = ctx.Context.Request.QueryString.Value ?? "";
+            if (qs.Contains("v="))
+            {
+                // Versioned asset — cache forever, immutable
+                ctx.Context.Response.Headers["Cache-Control"] = "public, max-age=31536000, immutable";
+            }
+            else
+            {
+                // Non-versioned — revalidate every time
+                ctx.Context.Response.Headers["Cache-Control"] = "public, max-age=0, must-revalidate";
+            }
+        }
     });
 
     app.MapGet("/driver-app/", () => Results.File(Path.Combine(clientDir, "index.html"), "text/html; charset=utf-8"));
+    app.MapGet("/login", () => Results.File(Path.Combine(clientDir, "login.html"), "text/html; charset=utf-8"));
 }
 else
 {
     app.MapGet("/driver-app/", () => Results.Problem("Client folder not found"));
+    app.MapGet("/login", () => Results.Redirect("/driver-app/"));
 }
 
 // Minimal API used by client
@@ -196,21 +240,28 @@ app.MapGet("/api/cars", () =>
         }
 
         var cars = carDb.GetAll();
+        var lastLocsPublic = routeDb.GetCarLastLocations(); // route-based location priority
 
         var payload = JsonConvert.SerializeObject(new
         {
             status = "ok",
             cars = cars
                 .Where(c => !string.IsNullOrWhiteSpace(c.Number))
-                .Select(c => new
+                .Select(c =>
                 {
-                    plateNumber = Clean(c.Number)?.ToUpperInvariant(),
-                    brand = Clean(c.Brand),
-                    model = Clean(c.Model),
-                    vin = Clean(c.Vin),
-                    year = Clean(c.Year),
-                    department = Clean(c.Department),
-                    responsible = Clean(c.Responsible),
+                    lastLocsPublic.TryGetValue(c.Id.ToString(), out var routeLoc);
+                    var loc = !string.IsNullOrWhiteSpace(routeLoc) ? routeLoc : (c.CurrentLocation ?? "");
+                    return new
+                    {
+                        plateNumber = Clean(c.Number)?.ToUpperInvariant(),
+                        brand = Clean(c.Brand),
+                        model = Clean(c.Model),
+                        vin = Clean(c.Vin),
+                        year = Clean(c.Year),
+                        department = Clean(c.Department),
+                        responsible = Clean(c.Responsible),
+                        current_location = loc,
+                    };
                 })
                 .ToArray()
         });
@@ -232,18 +283,25 @@ app.MapGet("/api/admin/cars", (HttpRequest request) =>
     var admin = RequireAdmin(userDb, sessionStore, session);
     if (admin == null) return CarsForbidden();
 
-    var cars = carDb.GetAll()
-        .Select(c => new
+    var allCarsAdmin = carDb.GetAll();
+    var lastLocsAdmin = routeDb.GetCarLastLocations();
+    var cars = allCarsAdmin
+        .Select(c =>
         {
-            id = c.Id,
-            number = c.Number ?? "",
-            brand = c.Brand ?? "",
-            model = c.Model ?? "",
-            color = c.Color ?? "",
-            vin = c.Vin ?? "",
-            year = c.Year ?? "",
-            department = c.Department ?? "",
-            responsible = c.Responsible ?? "",
+            lastLocsAdmin.TryGetValue(c.Id.ToString(), out var routeLoc);
+            var loc = !string.IsNullOrWhiteSpace(routeLoc) ? routeLoc : (c.CurrentLocation ?? "");
+            return new
+            {
+                id = c.Id,
+                number = c.Number ?? "",
+                brand = c.Brand ?? "",
+                model = c.Model ?? "",
+                vin = c.Vin ?? "",
+                year = c.Year ?? "",
+                department = c.Department ?? "",
+                responsible = c.Responsible ?? "",
+                current_location = loc,
+            };
         })
         .ToArray();
 
@@ -271,11 +329,12 @@ app.MapPost("/api/admin/cars/upsert", async (HttpRequest request) =>
         Number = number,
         Brand = GetStr(c, "brand"),
         Model = GetStr(c, "model"),
-        Color = GetStr(c, "color"),
+        Color = "",
         Vin = GetStr(c, "vin"),
         Year = GetStr(c, "year"),
         Department = GetStr(c, "department"),
         Responsible = GetStr(c, "responsible"),
+        CurrentLocation = GetStr(c, "current_location"),
     });
 
     return Results.Text(JsonConvert.SerializeObject(new { status = "ok" }), "application/json; charset=utf-8");
@@ -294,6 +353,76 @@ app.MapPost("/api/admin/cars/delete", async (HttpRequest request) =>
         return Results.Text(JsonConvert.SerializeObject(new { status = "error", error = "BAD_ID" }), "application/json; charset=utf-8");
 
     var deleted = carDb.DeleteById(id.Value);
+    return Results.Text(JsonConvert.SerializeObject(new { status = "ok", deleted }), "application/json; charset=utf-8");
+});
+
+// Locations — public list for dropdown, admin CRUD
+app.MapGet("/api/locations", () =>
+{
+    try
+    {
+        var locs = locationDb.GetAll()
+            .Select(l => new { id = l.Id, name = l.Name, description = l.Description })
+            .ToArray();
+        return Results.Text(JsonConvert.SerializeObject(new { status = "ok", locations = locs }), "application/json; charset=utf-8");
+    }
+    catch (Exception ex)
+    {
+        return Results.Text(JsonConvert.SerializeObject(new { status = "error", error = ex.Message }), "application/json; charset=utf-8");
+    }
+});
+
+static IResult LocationsForbidden() =>
+    Results.Text(JsonConvert.SerializeObject(new { status = "error", error = "FORBIDDEN" }), "application/json; charset=utf-8");
+
+app.MapGet("/api/admin/locations", (HttpRequest request) =>
+{
+    var session = request.Query["session"].ToString();
+    var admin = RequireAdmin(userDb, sessionStore, session);
+    if (admin == null) return LocationsForbidden();
+
+    var locs = locationDb.GetAll()
+        .Select(l => new { id = l.Id, name = l.Name, description = l.Description })
+        .ToArray();
+    return Results.Text(JsonConvert.SerializeObject(new { status = "ok", locations = locs }), "application/json; charset=utf-8");
+});
+
+app.MapPost("/api/admin/locations/upsert", async (HttpRequest request) =>
+{
+    var body = await ReadBodyAsync(request);
+    dynamic root = JObject.Parse(body);
+    var session = (string?)root.session ?? "";
+    var admin = RequireAdmin(userDb, sessionStore, session);
+    if (admin == null) return LocationsForbidden();
+
+    dynamic loc = root.location;
+    var id = (long?)loc.id ?? 0;
+    var name = ((string?)loc.name ?? "").Trim();
+    if (string.IsNullOrWhiteSpace(name))
+        return Results.Text(JsonConvert.SerializeObject(new { status = "error", error = "BAD_DATA" }), "application/json; charset=utf-8");
+
+    locationDb.Upsert(new LocationDb.LocationRecord
+    {
+        Id = id,
+        Name = name,
+        Description = ((string?)loc.description ?? "").Trim(),
+    });
+    return Results.Text(JsonConvert.SerializeObject(new { status = "ok" }), "application/json; charset=utf-8");
+});
+
+app.MapPost("/api/admin/locations/delete", async (HttpRequest request) =>
+{
+    var body = await ReadBodyAsync(request);
+    dynamic root = JObject.Parse(body);
+    var session = (string?)root.session ?? "";
+    var admin = RequireAdmin(userDb, sessionStore, session);
+    if (admin == null) return LocationsForbidden();
+
+    var id = (long?)root.id;
+    if (id == null || id <= 0)
+        return Results.Text(JsonConvert.SerializeObject(new { status = "error", error = "BAD_ID" }), "application/json; charset=utf-8");
+
+    var deleted = locationDb.DeleteById(id.Value);
     return Results.Text(JsonConvert.SerializeObject(new { status = "ok", deleted }), "application/json; charset=utf-8");
 });
 
@@ -391,12 +520,14 @@ app.MapPost("/api/get-car", async (HttpRequest request) =>
     var body = await ReadBodyAsync(request);
     var obj = JObject.Parse(body);
     var number = (string?)obj["number"];
-    if (string.IsNullOrWhiteSpace(number)) return Results.Text("CAR_NOT_FOUND");
+    if (string.IsNullOrWhiteSpace(number))
+        return Results.Text(JsonConvert.SerializeObject(new { status = "error", error = "CAR_NOT_FOUND" }), "application/json; charset=utf-8");
 
     var car = carDb.GetByNumber(number);
-    if (car == null) return Results.Text("CAR_NOT_FOUND");
+    if (car == null)
+        return Results.Text(JsonConvert.SerializeObject(new { status = "error", error = "CAR_NOT_FOUND" }), "application/json; charset=utf-8");
 
-    var result = JsonConvert.SerializeObject(new { brand = car.Brand, model = car.Model });
+    var result = JsonConvert.SerializeObject(new { status = "ok", brand = car.Brand, model = car.Model });
     return Results.Text(result, "application/json; charset=utf-8");
 });
 
@@ -471,6 +602,7 @@ app.MapPost("/api/authorize", async (HttpRequest request) =>
         surname = user.Surname,
         role = (user.Role ?? "").ToLowerInvariant(),
         access_key,
+        session,
         random_wheel = "",
         photoday = ""
     });
@@ -478,10 +610,13 @@ app.MapPost("/api/authorize", async (HttpRequest request) =>
     return Results.Text(payload, "application/json; charset=utf-8");
 });
 
-app.MapGet("/api/get-tables", (HttpRequest request) =>
+app.MapGet("/api/get-tables", async (HttpRequest request) =>
 {
     var accessKey = request.Query["l"].ToString();
-    var zip = driverApp.GetTables(accessKey);
+    await xlLock.WaitAsync();
+    byte[]? zip;
+    try { zip = driverApp.GetTables(accessKey); }
+    finally { xlLock.Release(); }
     if (zip == null) return Results.Text("Ошибка доступа", "text/plain; charset=utf-8");
 
     return Results.File(zip, "application/zip", fileDownloadName: "checkups.zip");
@@ -511,7 +646,8 @@ app.MapPost("/api/pre-checkup", async (HttpRequest request) =>
     var session = (string?)root.session;
     var login = sessionStore.GetLogin(session);
     var user = string.IsNullOrWhiteSpace(login) ? null : userDb.GetByLogin(login);
-    if (user == null) return Results.Text("");
+    if (user == null)
+        return Results.Text(JsonConvert.SerializeObject(new { status = "error", error = "SESSION_INVALID" }), "application/json; charset=utf-8");
 
     dynamic obj = root.data;
 
@@ -531,47 +667,143 @@ app.MapPost("/api/pre-checkup", async (HttpRequest request) =>
 
     var row = new ExcelProvider.Row();
 
+    var now = DateTime.Now;
+    var submittedAt = now.ToString("yyyy-MM-dd HH:mm:ss");
+    static bool? ToBool(object? v) { var s = v as string; if (string.IsNullOrWhiteSpace(s)) return null; return s == "true" || s == "True" || s == "1"; }
+
     row.Add("Дата записи", (string?)obj.date ?? "");
-    row.Add("Время завершения отчёта", (string?)obj.date_2 ?? (string?)obj.date ?? "");
+    row.Add("Время завершения отчёта", submittedAt);
     row.Add("Фамилия пользователя", user.Surname);
     row.Add("Имя пользователя", user.Name);
-    row.Add("Тип отчёта", (string?)obj.type ?? "");
-    row.Add("ID автомобиля", (string?)obj.car_id ?? "");
+    row.Add("Тип отчёта", "CheckUp");
+    row.Add("ID автомобиля", carRec?.Id.ToString() ?? (string?)obj.car_id ?? "");
     row.Add("Марка автомобиля", car.brand);
     row.Add("Модель автомобиля", car.model);
     row.Add("Госномер", car.number);
-    row.Add("Тип ТС", (string?)obj.car_type ?? "");
     row.Add("Пробег", (string?)obj.mileage ?? "");
     row.Add("Геолокация", (string?)obj.geo ?? "");
-    row.Add("Уровень моторного масла проверен", "Да");
+    row.Add("Состояние кузова", (string?)obj.body_condition ?? "");
+    row.Add("Колёса ОК", (string?)obj.wheels_ok ?? "");
+    row.Add("Повреждение колеса", (string?)obj.wheel_damaged ?? "");
+    row.Add("Состояние салона", (string?)obj.interior_condition ?? "");
+    row.Add("Уровень моторного масла проверен", (string?)obj.oil_checked == "true" ? "ДА" : "");
     row.Add("Уровень моторного масла", (string?)obj.oil_level ?? "");
     row.Add("Уровень антифриза в норме", (string?)obj.antifreeze_ok ?? "");
     row.Add("Тормозная жидкость", (string?)obj.brakefluid_level ?? "");
-    row.Add("Омывающая жидкость", (string?)obj.glasswasher_ok ?? "");
+    row.Add("Омывающей жидкости больше 80%", (string?)obj.glasswasher_ok ?? "");
+    row.Add("Освещение проверено", (string?)obj.lighting_ok ?? "");
+    row.Add("Аварийный набор", (string?)obj.emergency_kit_ok ?? "");
+    row.Add("Состояние стёкол", (string?)obj.glass_condition ?? "");
+    row.Add("Уровень топлива", (string?)obj.fuel_level ?? "");
+    row.Add("Ошибки приборной панели", (string?)obj.dashboard_errors ?? "");
+    row.Add("СТС", (string?)obj.registration_ok ?? "");
+    row.Add("ОСАГО до", (string?)obj.osago_date ?? "");
     row.Add("Пожелания по авто", (string?)obj.additional_info ?? "");
     row.Add("Критические замечания", (string?)obj.critical_info ?? "");
-    row.Add("Уровень топлива", (string?)obj.fuel_level ?? "");
-    row.Add("Авто чистый", (string?)obj.clean_ok ?? "");
-    row.Add("Салон проверен и чист", (string?)obj.interior_ok ?? "");
     row.Add("Wifi", (string?)obj.wifi ?? "");
     row.Add("VPN", (string?)obj.vpn ?? "");
+    row.Add("Быстрый выезд", (string?)obj.quick_exit == "true" ? "ДА" : "");
 
-    TryAddPhoto(row, "Фото пробега", (string?)obj.photo_mileage, car, "Фото пробега", dataRoot);
-    TryAddPhoto(row, "Фото передний левый угол", (string?)obj.photo_rl, car, "Фото передний левый угол", dataRoot);
-    TryAddPhoto(row, "Фото передний правый угол", (string?)obj.photo_rr, car, "Фото передний правый угол", dataRoot);
-    TryAddPhoto(row, "Фото задний правый угол", (string?)obj.photo_br, car, "Фото задний правый угол", dataRoot);
-    TryAddPhoto(row, "Фото задний левый угол", (string?)obj.photo_bl, car, "Фото задний левый угол", dataRoot);
-    TryAddPhoto(row, "Фото спереди", (string?)obj.photo_r, car, "Фото спереди", dataRoot);
-    TryAddPhoto(row, "Фото задняя часть", (string?)obj.photo_b, car, "Фото задняя часть", dataRoot);
-    TryAddPhoto(row, "Фото левая сторона", (string?)obj.photo_l, car, "Фото левая сторона", dataRoot);
-    TryAddPhoto(row, "Фото правая сторона", (string?)obj.photo_rg, car, "Фото правая сторона", dataRoot);
-    TryAddPhoto(row, "Фото открытая передняя левая дверь", (string?)obj.photo_irl, car, "Фото открытая передняя левая дверь", dataRoot);
-    TryAddPhoto(row, "Фото открытая передняя правая дверь", (string?)obj.photo_irr, car, "Фото открытая передняя правая дверь", dataRoot);
-    TryAddPhoto(row, "Фото открытая задняя правая дверь", (string?)obj.photo_ibr, car, "Фото открытая задняя правая дверь", dataRoot);
-    TryAddPhoto(row, "Фото открытая задняя левая дверь", (string?)obj.photo_ibl, car, "Фото открытая задняя левая дверь", dataRoot);
-    TryAddPhoto(row, "Фото дня", (string?)obj.photo_of_day, car, "Фото дня", dataRoot);
+    var pMileage  = TrySavePhoto((string?)obj.photo_mileage, car, "Фото пробега", dataRoot);
+    var pRl       = TrySavePhoto((string?)obj.photo_rl,      car, "Фото перед лев", dataRoot);
+    var pRr       = TrySavePhoto((string?)obj.photo_rr,      car, "Фото перед прав", dataRoot);
+    var pBr       = TrySavePhoto((string?)obj.photo_br,      car, "Фото зад прав", dataRoot);
+    var pBl       = TrySavePhoto((string?)obj.photo_bl,      car, "Фото зад лев", dataRoot);
+    var pFront    = TrySavePhoto((string?)obj.photo_r,       car, "Фото спереди", dataRoot);
+    var pRear     = TrySavePhoto((string?)obj.photo_b,       car, "Фото сзади", dataRoot);
+    var pLeft     = TrySavePhoto((string?)obj.photo_l,       car, "Фото лев сторона", dataRoot);
+    var pRight    = TrySavePhoto((string?)obj.photo_rg,      car, "Фото прав сторона", dataRoot);
+    var pIrl      = TrySavePhoto((string?)obj.photo_irl,     car, "Фото салон перед лев", dataRoot);
+    var pIrr      = TrySavePhoto((string?)obj.photo_irr,     car, "Фото салон перед прав", dataRoot);
+    var pIbr      = TrySavePhoto((string?)obj.photo_ibr,     car, "Фото салон зад прав", dataRoot);
+    var pIbl      = TrySavePhoto((string?)obj.photo_ibl,     car, "Фото салон зад лев", dataRoot);
+    var pDay      = TrySavePhoto((string?)obj.photo_of_day,  car, "Фото дня", dataRoot);
+    var pDash     = TrySavePhoto((string?)obj.photo_dashboard, car, "Фото панели", dataRoot);
 
-    driverApp.AddCheckUp(row);
+    static void AddPhotoRow(ExcelProvider.Row r, string col, string? path)
+    { if (!string.IsNullOrEmpty(path)) r.Add(col, $"/api/get-photo?id={path}"); }
+
+    AddPhotoRow(row, "Фото пробега", pMileage);
+    AddPhotoRow(row, "Фото передний левый угол", pRl);
+    AddPhotoRow(row, "Фото передний правый угол", pRr);
+    AddPhotoRow(row, "Фото задний правый угол", pBr);
+    AddPhotoRow(row, "Фото задний левый угол", pBl);
+    AddPhotoRow(row, "Фото спереди", pFront);
+    AddPhotoRow(row, "Фото задняя часть", pRear);
+    AddPhotoRow(row, "Фото левая сторона", pLeft);
+    AddPhotoRow(row, "Фото правая сторона", pRight);
+    AddPhotoRow(row, "Фото открытая передняя левая дверь", pIrl);
+    AddPhotoRow(row, "Фото открытая передняя правая дверь", pIrr);
+    AddPhotoRow(row, "Фото открытая задняя правая дверь", pIbr);
+    AddPhotoRow(row, "Фото открытая задняя левая дверь", pIbl);
+    AddPhotoRow(row, "Фото дня", pDay);
+    AddPhotoRow(row, "Фото приборной панели", pDash);
+
+    await xlLock.WaitAsync();
+    try { driverApp.AddCheckUp(row); }
+    finally { xlLock.Release(); }
+
+    try
+    {
+        var checkupId = checkupDb.Insert(new CheckupDb.PreCheckupRecord
+        {
+            SubmittedAt       = submittedAt,
+            UserLogin         = login,
+            UserName          = user.Name,
+            UserSurname       = user.Surname,
+            CarId             = carRec?.Id.ToString() ?? (string?)obj.car_id,
+            CarNumber         = car.number,
+            CarBrand          = car.brand,
+            CarModel          = car.model,
+            Geo               = (string?)obj.geo,
+            BodyCondition     = (string?)obj.body_condition,
+            WheelsOk          = ToBool((string?)obj.wheels_ok),
+            WheelDamaged      = ToBool((string?)obj.wheel_damaged),
+            InteriorCondition = (string?)obj.interior_condition,
+            OilChecked        = ToBool((string?)obj.oil_checked),
+            OilLevel          = (string?)obj.oil_level,
+            CoolantOk         = ToBool((string?)obj.antifreeze_ok),
+            BrakeFluid        = (string?)obj.brakefluid_level,
+            WasherOk          = ToBool((string?)obj.glasswasher_ok),
+            LightingOk        = ToBool((string?)obj.lighting_ok),
+            EmergencyKitOk    = ToBool((string?)obj.emergency_kit_ok),
+            GlassCondition    = (string?)obj.glass_condition,
+            Mileage           = (string?)obj.mileage,
+            FuelLevel         = (string?)obj.fuel_level,
+            DashboardErrors   = ToBool((string?)obj.dashboard_errors),
+            RegistrationOk    = ToBool((string?)obj.registration_ok),
+            OsagoDate         = (string?)obj.osago_date,
+            OsagoMissing      = ToBool((string?)obj.osago_missing),
+            Wifi              = (string?)obj.wifi,
+            Vpn               = (string?)obj.vpn,
+            AdditionalInfo    = (string?)obj.additional_info,
+            CriticalInfo      = (string?)obj.critical_info,
+            QuickExit         = ToBool((string?)obj.quick_exit),
+            PhotoMileage      = pMileage,
+            PhotoRl           = pRl,
+            PhotoRr           = pRr,
+            PhotoBr           = pBr,
+            PhotoBl           = pBl,
+            PhotoFront        = pFront,
+            PhotoRear         = pRear,
+            PhotoLeft         = pLeft,
+            PhotoRight        = pRight,
+            PhotoIrl          = pIrl,
+            PhotoIrr          = pIrr,
+            PhotoIbr          = pIbr,
+            PhotoIbl          = pIbl,
+            PhotoOfDay        = pDay,
+            PhotoDashboard    = pDash,
+        });
+        // Привязываем чекап к маршруту если route_id передан
+        var routeIdStr = (string?)obj.route_id;
+        if (!string.IsNullOrWhiteSpace(routeIdStr) && long.TryParse(routeIdStr, out var linkedRouteId) && linkedRouteId > 0)
+            routeDb.SetPreCheckup(linkedRouteId, checkupId);
+    }
+    catch (Exception ex)
+    {
+        Console.WriteLine($"[pre-checkup] insert error: {ex.Message}");
+    }
 
     return Results.Text(JsonConvert.SerializeObject(new { status = "ok" }), "application/json; charset=utf-8");
 });
@@ -583,7 +815,8 @@ app.MapPost("/api/post-checkup", async (HttpRequest request) =>
     var session = (string?)root.session;
     var login = sessionStore.GetLogin(session);
     var user = string.IsNullOrWhiteSpace(login) ? null : userDb.GetByLogin(login);
-    if (user == null) return Results.Text("");
+    if (user == null)
+        return Results.Text(JsonConvert.SerializeObject(new { status = "error", error = "SESSION_INVALID" }), "application/json; charset=utf-8");
 
     dynamic obj = root.data;
 
@@ -607,8 +840,8 @@ app.MapPost("/api/post-checkup", async (HttpRequest request) =>
     row.Add("Время завершения отчёта", DateTime.Now.ToString());
     row.Add("Фамилия пользователя", user.Surname);
     row.Add("Имя пользователя", user.Name);
-    row.Add("Тип отчёта", (string?)obj.type ?? "");
-    row.Add("ID автомобиля", (string?)obj.car_id ?? "");
+    row.Add("Тип отчёта", "CheckUp после приезда");
+    row.Add("ID автомобиля", carRec?.Id.ToString() ?? (string?)obj.car_id ?? "");
     row.Add("Марка автомобиля", car.brand);
     row.Add("Модель автомобиля", car.model);
     row.Add("Госномер", car.number);
@@ -619,7 +852,7 @@ app.MapPost("/api/post-checkup", async (HttpRequest request) =>
     row.Add("Уровень моторного масла", (string?)obj.oil_level ?? "");
     row.Add("Уровень антифриза в норме", (string?)obj.antifreeze_ok ?? "");
     row.Add("Тормозная жидкость", (string?)obj.brakefluid_level ?? "");
-    row.Add("Омывающая жидкость", (string?)obj.glasswasher_ok ?? "");
+    row.Add("Омывающей жидкости больше 80%", (string?)obj.glasswasher_ok ?? "");
     row.Add("Пожелания по авто", (string?)obj.additional_info ?? "");
     row.Add("Критические замечания", (string?)obj.critical_info ?? "");
     row.Add("Уровень топлива", (string?)obj.fuel_level ?? "");
@@ -645,7 +878,27 @@ app.MapPost("/api/post-checkup", async (HttpRequest request) =>
     TryAddPhoto(row, "Фото дня", (string?)obj.photo_of_day, car, "По приезду Фото дня", dataRoot);
     TryAddPhoto(row, "Фото повреждения", (string?)obj.damage_photo, car, "По приезду Повреждение", dataRoot);
 
-    driverApp.AddPostCheckUp(row);
+    await xlLock.WaitAsync();
+    try { driverApp.AddPostCheckUp(row); }
+    finally { xlLock.Release(); }
+
+    // Сохраняем пробег + привязываем к маршруту
+    try
+    {
+        var postMileage = (string?)obj.mileage;
+        var postSubmittedAt = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
+        var postMileageId = checkupDb.InsertPostMileage(car.number, carRec?.Id.ToString(), postMileage, postSubmittedAt);
+        var postRouteIdStr = (string?)obj.route_id;
+        if (postMileageId > 0 && !string.IsNullOrWhiteSpace(postRouteIdStr)
+            && long.TryParse(postRouteIdStr, out var postLinkedRouteId) && postLinkedRouteId > 0)
+        {
+            routeDb.SetPostCheckup(postLinkedRouteId, postMileageId);
+        }
+    }
+    catch (Exception ex)
+    {
+        Console.WriteLine($"[post-checkup] save error: {ex.Message}");
+    }
 
     return Results.Text(JsonConvert.SerializeObject(new { status = "ok" }), "application/json; charset=utf-8");
 });
@@ -665,17 +918,306 @@ app.MapGet("/api/get-photo", (HttpRequest request) =>
     return Results.File(fullPath, "image/jpeg");
 });
 
-app.MapGet("/driver-app/pre-checkups", () =>
+app.MapGet("/driver-app/pre-checkups", async () =>
 {
-    var checkUps = driverApp.GetCheckups();
+    await xlLock.WaitAsync();
+    ExcelProvider.Row[] checkUps;
+    try { checkUps = driverApp.GetCheckups(); }
+    finally { xlLock.Release(); }
     return Results.Text(RenderTableHtml("Осмотры", checkUps), "text/html; charset=utf-8");
 });
 
-app.MapGet("/driver-app/post-checkups", () =>
+app.MapGet("/driver-app/post-checkups", async () =>
 {
-    var checkUps = driverApp.GetPostCheckups();
+    await xlLock.WaitAsync();
+    ExcelProvider.Row[] checkUps;
+    try { checkUps = driverApp.GetPostCheckups(); }
+    finally { xlLock.Release(); }
     return Results.Text(RenderTableHtml("Осмотры", checkUps), "text/html; charset=utf-8");
 });
+
+// ── Routes API ────────────────────────────────────────────────────────────────
+
+static IResult RoutesForbidden() =>
+    Results.Text(JsonConvert.SerializeObject(new { status = "error", error = "FORBIDDEN" }), "application/json; charset=utf-8");
+
+static object RouteToObj(RoutesDb.RouteRecord r) => new
+{
+    id             = r.Id,
+    created_at     = r.CreatedAt,
+    car_id         = r.CarId,
+    car_number     = r.CarNumber,
+    car_brand      = r.CarBrand,
+    car_model      = r.CarModel,
+    driver_login   = r.DriverLogin,
+    driver_name    = r.DriverName,
+    driver_surname = r.DriverSurname,
+    from_location  = r.FromLocation,
+    to_location    = r.ToLocation,
+    status         = r.Status,
+    pre_checkup_id = r.PreCheckupId,
+    post_checkup_id= r.PostCheckupId,
+    departed_at    = r.DepartedAt,
+    arrived_at     = r.ArrivedAt,
+};
+
+// GET /api/routes — driver sees own, admin sees all
+app.MapGet("/api/routes", (HttpRequest request) =>
+{
+    var session = request.Query["session"].ToString();
+    if (string.IsNullOrWhiteSpace(session))
+        return RoutesForbidden();
+    var login = sessionStore.GetLogin(session);
+    var user = string.IsNullOrWhiteSpace(login) ? null : userDb.GetByLogin(login);
+    if (user == null) return RoutesForbidden();
+
+    RoutesDb.RouteRecord[] routes = IsAdminRole(user.Role)
+        ? routeDb.GetAll()
+        : routeDb.GetByDriver(login);
+
+    return Results.Text(JsonConvert.SerializeObject(new { status = "ok", routes = routes.Select(RouteToObj) }), "application/json; charset=utf-8");
+});
+
+// POST /api/routes — create route
+app.MapPost("/api/routes", async (HttpRequest request) =>
+{
+    var body = await ReadBodyAsync(request);
+    dynamic root = JObject.Parse(body);
+    var session = (string?)root.session ?? "";
+    var login = sessionStore.GetLogin(session);
+    var user = string.IsNullOrWhiteSpace(login) ? null : userDb.GetByLogin(login);
+    if (user == null) return RoutesForbidden();
+
+    var carNumber = ((string?)root.car_number ?? "").Trim();
+    var fromLoc   = ((string?)root.from_location ?? "").Trim();
+    var toLoc     = ((string?)root.to_location   ?? "").Trim();
+
+    if (string.IsNullOrWhiteSpace(carNumber) || string.IsNullOrWhiteSpace(toLoc))
+        return Results.Text(JsonConvert.SerializeObject(new { status = "error", error = "BAD_DATA" }), "application/json; charset=utf-8");
+
+    var carRec = carDb.GetByNumber(carNumber);
+    var carId  = carRec?.Id.ToString() ?? carNumber;
+    var carBrand = carRec?.Brand ?? "";
+    var carModel = carRec?.Model ?? "";
+
+    // One active route per car
+    if (routeDb.GetActiveByCarId(carId) != null)
+        return Results.Text(JsonConvert.SerializeObject(new { status = "error", error = "CAR_BUSY" }), "application/json; charset=utf-8");
+
+    var now = DateTime.Now.ToString("o");
+    var id = routeDb.Insert(new RoutesDb.RouteRecord
+    {
+        CreatedAt     = now,
+        CarId         = carId,
+        CarNumber     = carNumber,
+        CarBrand      = carBrand,
+        CarModel      = carModel,
+        DriverLogin   = login,
+        DriverName    = user.Name ?? "",
+        DriverSurname = user.Surname ?? "",
+        FromLocation  = fromLoc,
+        ToLocation    = toLoc,
+        DepartedAt    = now,
+    });
+
+    var route = routeDb.GetById(id);
+    return Results.Text(JsonConvert.SerializeObject(new { status = "ok", route = RouteToObj(route!) }), "application/json; charset=utf-8");
+});
+
+// POST /api/routes/{id}/complete
+app.MapPost("/api/routes/{id}/complete", async (HttpRequest request, long id) =>
+{
+    var body = await ReadBodyAsync(request);
+    dynamic root = JObject.Parse(body);
+    var session = (string?)root.session ?? "";
+    var login = sessionStore.GetLogin(session);
+    var user = string.IsNullOrWhiteSpace(login) ? null : userDb.GetByLogin(login);
+    if (user == null) return RoutesForbidden();
+
+    var route = routeDb.GetById(id);
+    if (route == null)
+        return Results.Text(JsonConvert.SerializeObject(new { status = "error", error = "NOT_FOUND" }), "application/json; charset=utf-8");
+
+    // Only driver of the route or admin can complete it
+    if (!IsAdminRole(user.Role) && !string.Equals(route.DriverLogin, login, StringComparison.OrdinalIgnoreCase))
+        return RoutesForbidden();
+
+    routeDb.Complete(id, DateTime.Now.ToString("o"));
+    // Update car's current location to the route's destination
+    if (!string.IsNullOrWhiteSpace(route.ToLocation) && !string.IsNullOrWhiteSpace(route.CarNumber))
+        carDb.UpdateLocation(route.CarNumber, route.ToLocation);
+    return Results.Text(JsonConvert.SerializeObject(new { status = "ok" }), "application/json; charset=utf-8");
+});
+
+// GET /api/routes/active-cars — list car_ids that are in active routes
+app.MapGet("/api/routes/active-cars", (HttpRequest request) =>
+{
+    var session = request.Query["session"].ToString();
+    var login = sessionStore.GetLogin(session);
+    if (string.IsNullOrWhiteSpace(login)) return RoutesForbidden();
+
+    var activeRoutes = routeDb.GetAll().Where(r => r.Status == "active").ToArray();
+    var car_ids = activeRoutes.Select(r => r.CarId).Distinct().ToArray();
+    var active_car_numbers = activeRoutes.Select(r => r.CarNumber.ToUpperInvariant()).Distinct().ToArray();
+    return Results.Text(JsonConvert.SerializeObject(new { status = "ok", car_ids, active_car_numbers }), "application/json; charset=utf-8");
+});
+
+// GET /api/routes/board — admin board: all cars with current location + active route
+app.MapGet("/api/routes/board", (HttpRequest request) =>
+{
+    var session = request.Query["session"].ToString();
+    var admin = RequireAdmin(userDb, sessionStore, session);
+    if (admin == null) return RoutesForbidden();
+
+    var locations = locationDb.GetAll().Select(l => l.Name).ToArray();
+    var allCars   = carDb.GetAll();
+    var lastLocs  = routeDb.GetCarLastLocations();
+    var activeRoutes = routeDb.GetAll().Where(r => r.Status == "active").ToDictionary(r => r.CarId, StringComparer.OrdinalIgnoreCase);
+
+    var cars = allCars.Select(c =>
+    {
+        activeRoutes.TryGetValue(c.Id.ToString(), out var active);
+        lastLocs.TryGetValue(c.Id.ToString(), out var routeLoc);
+        // Priority: last completed route location → manually set car location
+        var currentLoc = !string.IsNullOrWhiteSpace(routeLoc)
+            ? routeLoc
+            : (c.CurrentLocation ?? "");
+        var carPhotoPath = Path.Combine(dataRoot, "car-photos", CarDb.NormalizeNumber(c.Number) + ".jpg");
+        return new
+        {
+            car_id       = c.Id.ToString(),
+            car_number   = c.Number,
+            car_brand    = c.Brand,
+            car_model    = c.Model,
+            current_location = currentLoc,
+            has_photo    = System.IO.File.Exists(carPhotoPath),
+            active_route = active == null ? null : (object)RouteToObj(active),
+        };
+    }).ToArray();
+
+    return Results.Text(JsonConvert.SerializeObject(new { status = "ok", locations, cars }), "application/json; charset=utf-8");
+});
+
+// ── Car Card API ──────────────────────────────────────────────────────────────
+
+// GET /api/car-card/{number} — car info + last mileage + photo flag
+app.MapGet("/api/car-card/{number}", (HttpRequest request, string number) =>
+{
+    var session = request.Query["session"].ToString();
+    var login = sessionStore.GetLogin(session);
+    if (string.IsNullOrWhiteSpace(login)) return Results.Text(JsonConvert.SerializeObject(new { status = "error", error = "FORBIDDEN" }), "application/json; charset=utf-8");
+
+    var car = carDb.GetByNumber(number);
+    if (car == null) return Results.Text(JsonConvert.SerializeObject(new { status = "error", error = "NOT_FOUND" }), "application/json; charset=utf-8");
+
+    var (mileage, mileageDate) = checkupDb.GetLastMileageByCarNumber(number, car.Id);
+    var lastLocs = routeDb.GetCarLastLocations();
+    lastLocs.TryGetValue(car.Id.ToString(), out var routeLoc);
+    var location = !string.IsNullOrWhiteSpace(routeLoc) ? routeLoc : (car.CurrentLocation ?? "");
+
+    var photoPath = Path.Combine(dataRoot, "car-photos", CarDb.NormalizeNumber(number) + ".jpg");
+    var hasPhoto = System.IO.File.Exists(photoPath);
+
+    return Results.Text(JsonConvert.SerializeObject(new
+    {
+        status = "ok",
+        car = new
+        {
+            id = car.Id,
+            number = car.Number,
+            brand = car.Brand,
+            model = car.Model,
+            vin = car.Vin,
+            year = car.Year,
+            department = car.Department,
+            responsible = car.Responsible,
+            current_location = location,
+            last_mileage = mileage ?? "",
+            last_mileage_date = mileageDate ?? "",
+            has_photo = hasPhoto,
+        }
+    }), "application/json; charset=utf-8");
+});
+
+// GET /api/car-photo/{number} — serve car photo file
+app.MapGet("/api/car-photo/{number}", (string number) =>
+{
+    var normalized = CarDb.NormalizeNumber(number);
+    if (string.IsNullOrWhiteSpace(normalized)) return Results.NotFound();
+    var photoPath = Path.Combine(dataRoot, "car-photos", normalized + ".jpg");
+    if (!System.IO.File.Exists(photoPath)) return Results.NotFound();
+    return Results.File(photoPath, "image/jpeg");
+});
+
+// POST /api/car-card/{number}/photo — upload car photo
+app.MapPost("/api/car-card/{number}/photo", async (HttpRequest request, string number) =>
+{
+    var session = request.Query["session"].ToString();
+    var login = sessionStore.GetLogin(session);
+    var user = string.IsNullOrWhiteSpace(login) ? null : userDb.GetByLogin(login);
+    if (user == null) return Results.Text(JsonConvert.SerializeObject(new { status = "error", error = "FORBIDDEN" }), "application/json; charset=utf-8");
+
+    var normalized = CarDb.NormalizeNumber(number);
+    if (string.IsNullOrWhiteSpace(normalized))
+        return Results.Text(JsonConvert.SerializeObject(new { status = "error", error = "BAD_NUMBER" }), "application/json; charset=utf-8");
+
+    if (!request.HasFormContentType)
+        return Results.Text(JsonConvert.SerializeObject(new { status = "error", error = "NOT_FORM" }), "application/json; charset=utf-8");
+
+    var form = await request.ReadFormAsync();
+    var file = form.Files.FirstOrDefault();
+    if (file == null || file.Length == 0)
+        return Results.Text(JsonConvert.SerializeObject(new { status = "error", error = "NO_FILE" }), "application/json; charset=utf-8");
+
+    var photoDir = Path.Combine(dataRoot, "car-photos");
+    Directory.CreateDirectory(photoDir);
+    var photoPath = Path.Combine(photoDir, normalized + ".jpg");
+
+    using var stream = new FileStream(photoPath, FileMode.Create, FileAccess.Write);
+    await file.CopyToAsync(stream);
+
+    return Results.Text(JsonConvert.SerializeObject(new { status = "ok" }), "application/json; charset=utf-8");
+});
+
+// GET /api/car-card/{number}/routes — routes for this car
+app.MapGet("/api/car-card/{number}/routes", (HttpRequest request, string number) =>
+{
+    var session = request.Query["session"].ToString();
+    var login = sessionStore.GetLogin(session);
+    if (string.IsNullOrWhiteSpace(login)) return Results.Text(JsonConvert.SerializeObject(new { status = "error", error = "FORBIDDEN" }), "application/json; charset=utf-8");
+
+    var normalized = CarDb.NormalizeNumber(number);
+    var carForRoutes = carDb.GetByNumber(number);
+    var carIdForRoutes = carForRoutes?.Id.ToString();
+
+    var routes = routeDb.GetAll()
+        .Where(r =>
+            (!string.IsNullOrEmpty(normalized) && r.CarNumber.Equals(normalized, StringComparison.OrdinalIgnoreCase))
+            || (!string.IsNullOrEmpty(carIdForRoutes) && r.CarId == carIdForRoutes))
+        .OrderByDescending(r => r.Id)
+        .Select(r => new
+        {
+            id = r.Id,
+            created_at = r.CreatedAt,
+            arrived_at = r.ArrivedAt,
+            departed_at = r.DepartedAt,
+            from_location = r.FromLocation,
+            to_location = r.ToLocation,
+            status = r.Status,
+            driver_name = r.DriverName,
+            driver_surname = r.DriverSurname,
+            driver_login = r.DriverLogin,
+            pre_checkup = r.PreCheckupId.HasValue,
+            post_checkup = r.PostCheckupId.HasValue,
+        })
+        .ToArray();
+
+    return Results.Text(JsonConvert.SerializeObject(new { status = "ok", routes }), "application/json; charset=utf-8");
+});
+
+// ── End Car Card API ──────────────────────────────────────────────────────────
+
+// ── End Routes API ────────────────────────────────────────────────────────────
 
 app.MapGet("/", () => Results.Redirect("/driver-app/"));
 
@@ -699,6 +1241,13 @@ static async Task<string> ReadBodyAsync(HttpRequest request)
     }
 
     return body;
+}
+
+static string? TrySavePhoto(string? dataUri, DriverAppProvider.Car car, string detail, string dataRoot)
+{
+    if (string.IsNullOrWhiteSpace(dataUri)) return null;
+    try { return SavePicture(dataUri, car, detail, dataRoot); }
+    catch { return null; }
 }
 
 static void TryAddPhoto(ExcelProvider.Row row, string columnName, string? dataUri, DriverAppProvider.Car car, string detail, string dataRoot)
@@ -777,11 +1326,15 @@ img { max-width:100px; }
             var value = item.Value ?? "";
             if (value.StartsWith("/api/get-photo?id=", StringComparison.OrdinalIgnoreCase))
             {
-                sb.AppendLine($"<td><img src='{WebUtility.HtmlEncode(value)}' /></td>");
+                var enc = WebUtility.HtmlEncode(value);
+                sb.AppendLine($"<td><a href='{enc}' target='_blank' rel='noopener'><img src='{enc}' /></a></td>");
             }
             else
             {
-                sb.AppendLine($"<td>{WebUtility.HtmlEncode(value)}</td>");
+                var display = value.Equals("true", StringComparison.OrdinalIgnoreCase) ? "ДА"
+                            : value.Equals("false", StringComparison.OrdinalIgnoreCase) ? "НЕТ"
+                            : value;
+                sb.AppendLine($"<td>{WebUtility.HtmlEncode(display)}</td>");
             }
         }
         sb.AppendLine("</tr>");
@@ -811,7 +1364,7 @@ static void EnsureLocalAssets(string repoRoot, string dataRoot)
         "Уровень моторного масла",
         "Уровень антифриза в норме",
         "Тормозная жидкость",
-        "Омывающая жидкость",
+        "Омывающей жидкости больше 80%",
         "Пожелания по авто",
         "Критические замечания",
         "Уровень топлива",

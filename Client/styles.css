@@ -1,3 +1,8 @@
+/* Официальный шрифт госномеров РФ */
+@import url('https://fonts.cdnfonts.com/css/road-numbers');
+/* Рукописный шрифт для бренда */
+@import url('https://fonts.googleapis.com/css2?family=Caveat:wght@700&display=swap');
+
 /* Prevent mobile overflow from padding/width math */
 *,
 *::before,
@@ -19,8 +24,7 @@ body{
 #dashboardTop{
   max-width: 1400px;
   margin: 0 auto;
-  padding: 8px 6px 6px 6px;
-  position: relative;
+  padding: 8px 12px 8px 12px;
 }
 
 /* Align meta with main card width */
@@ -36,10 +40,6 @@ body{
   padding-right: 0;
 }
 
-.topbar__left{
-  justify-self: start;
-}
-
 /* Legacy header block with selected car text (avoid duplicate UI) */
 #head_block{
   display: none !important;
@@ -47,15 +47,37 @@ body{
 
 .topbar{
   display: grid;
-  grid-template-columns: 1fr auto 1fr;
+  grid-template-columns: 50px 1fr auto;
   align-items: center;
   gap: 10px;
 }
 
 .topbar__left{
+  /* spacer for fixed burger button */
+}
+
+.topbar__center{
   display: flex;
   align-items: center;
   gap: 10px;
+  min-width: 0;
+}
+
+.topbar__right{
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+}
+
+.topbar__brand{
+  font-family: 'Caveat', cursive;
+  font-size: 26px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  color: #0f172a;
+  -webkit-text-fill-color: #0f172a;
+  background: none;
+  filter: none;
 }
 
 .topbar__title{
@@ -86,7 +108,9 @@ body{
 #sidebarOverlay{
   position: fixed;
   inset: 0;
-  background: rgba(0,0,0,0.30);
+  background: rgba(15,23,42,0.25);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
   z-index: 140;
   opacity: 1;
   transition: opacity 250ms ease;
@@ -104,19 +128,19 @@ body{
   top: 0;
   left: 0;
   height: 100%;
-  width: min(280px, 86vw);
-  background: #ffffff;
+  width: min(300px, 88vw);
+  background: linear-gradient(160deg, #ffffff 0%, #f8fafc 100%);
   border-right: 0;
-  border-radius: 0 22px 22px 0;
-  box-shadow: 14px 0 44px rgba(15,23,42,0.14);
+  border-radius: 0 24px 24px 0;
+  box-shadow: 18px 0 50px rgba(15,23,42,0.16);
   z-index: 141;
   display: flex;
   flex-direction: column;
-  padding: 18px;
+  padding: 20px 16px;
   transform: translateX(0);
   opacity: 1;
   visibility: visible;
-  transition: transform 250ms ease, opacity 250ms ease, box-shadow 250ms ease;
+  transition: transform 260ms cubic-bezier(0.4,0,0.2,1), opacity 260ms ease, box-shadow 260ms ease;
   will-change: transform;
   overflow: hidden;
 }
@@ -142,8 +166,12 @@ body{
 .sidebar__brand{
   font-weight: 900;
   letter-spacing: 0.2px;
-  font-size: 18px;
+  font-size: 20px;
   color: #0f172a;
+  background: linear-gradient(90deg, #1e40af, #2563eb);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
 }
 
 .sidebar__nav{
@@ -159,32 +187,42 @@ body{
   text-align: left;
   border: 0;
   background: transparent;
-  color: #0f172a;
-  border-radius: 12px;
-  padding: 12px 14px;
+  color: #1e293b;
+  border-radius: 14px;
+  padding: 13px 16px;
   font-weight: 700;
+  font-size: 15px;
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 14px;
   cursor: pointer;
-  transition: background 160ms ease, color 160ms ease, transform 160ms ease;
+  transition: background 160ms ease, color 160ms ease, box-shadow 160ms ease, transform 120ms ease;
+  position: relative;
 }
 
 .sidebar__item:hover{
-  background: #f1f5f9;
+  background: rgba(37,99,235,0.07);
+  color: #2563eb;
 }
 
 .sidebar__item:active{
-  background: rgba(37,99,235,0.12);
-  color: #2563eb;
-  box-shadow: inset 3px 0 0 rgba(37,99,235,0.95);
+  transform: scale(0.98);
+  background: rgba(37,99,235,0.14);
+  color: #1d4ed8;
 }
 
 .sidebar__item:focus-visible{
   outline: none;
   background: rgba(37,99,235,0.10);
   color: #2563eb;
-  box-shadow: inset 3px 0 0 rgba(37,99,235,0.95), 0 0 0 3px rgba(37,99,235,0.18);
+  box-shadow: 0 0 0 3px rgba(37,99,235,0.22);
+}
+
+.sidebar__icon{
+  font-size: 20px;
+  width: 28px;
+  text-align: center;
+  flex-shrink: 0;
 }
 
 .sidebar__footer{
@@ -212,49 +250,43 @@ body{
 }
 
 #sidebarLogout.btn--danger{
-  width: auto;
-  min-height: 42px;
-  padding: 10px 12px;
-  border-radius: 12px;
-  box-shadow: 0 10px 22px rgba(239,68,68,0.16);
+  width: 100%;
+  min-height: 46px;
+  padding: 12px 16px;
+  border-radius: 14px;
+  font-size: 15px;
+  font-weight: 700;
+  box-shadow: 0 8px 20px rgba(239,68,68,0.20);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
 }
 
 #sidebarToggle{
-  border: 1px solid rgba(226,232,240,0.95);
-  background: #ffffff;
-  border-radius: 12px;
-  padding: 0;
-  width: 42px;
-  height: 42px;
-  min-height: 42px;
-  font-weight: 900;
-  font-size: 18px;
-  line-height: 1;
-  display: grid;
-  place-items: center;
-  box-shadow: 0 10px 22px rgba(15,23,42,0.08);
-  /* pinned to the far-left edge of viewport */
   position: fixed;
   top: 10px;
   left: 10px;
-  z-index: 160;
+  z-index: 9999;
+  width: 38px;
+  height: 38px;
+  min-height: 38px;
+  padding: 0;
+  border-radius: 10px;
+  border: 1px solid rgba(226,232,240,0.9);
+  background: #ffffff;
+  font-size: 17px;
+  font-weight: 900;
+  display: grid;
+  place-items: center;
+  box-shadow: 0 2px 8px rgba(15,23,42,0.07);
+  cursor: pointer;
+  transition: background 160ms ease, box-shadow 160ms ease;
 }
 
 #sidebarToggle:hover{
-  background: rgba(15,23,42,0.03);
-}
-
-/* Make room so fixed burger doesn't visually collide */
-@media (min-width: 768px){
-  #dashboardTop{
-    padding-left: 46px;
-  }
-}
-
-@media (max-width: 767px){
-  #dashboardTop{
-    padding-left: 46px;
-  }
+  background: #f8fafc;
+  box-shadow: 0 4px 14px rgba(15,23,42,0.10);
 }
 
 /* Danger button */
@@ -266,6 +298,15 @@ body{
 }
 .btn--danger:hover{ filter: brightness(0.96); }
 .btn--danger:active{ transform: translateY(1px) scale(0.99); }
+
+.btn--success{
+  background: #22c55e;
+  border-color: rgba(34,197,94,0.22);
+  color: #fff;
+  box-shadow: 0 14px 30px rgba(34,197,94,0.22);
+}
+.btn--success:hover{ filter: brightness(0.96); }
+.btn--success:active{ transform: translateY(1px) scale(0.99); }
 
 /* Fullscreen overlays (loading/login) */
 #loading,
@@ -295,7 +336,7 @@ body{
   bottom: 40px;
   width: min(70vw, 1200px);
   height: min(720px, 80vh);
-  background: url("./assets/login-bg.png") right bottom / contain no-repeat;
+  background: url("./assets/login-bg.png?v=20260703") right bottom / contain no-repeat;
   opacity: 0.15;
   pointer-events: none;
   z-index: 0;
@@ -424,7 +465,7 @@ body{
     display:none;
     overflow-y: auto;
     position: fixed;
-    top: 150px;
+    top: 86px;
     bottom: 0px;
     left: 0px;
     right: 0px;
@@ -643,6 +684,61 @@ body{
     height: 26px;
   }
 
+  /* ── Condition segmented controls (body / interior / glass) ── */
+  #bodyCond, #interiorCond, #glassCond{
+    display:grid;
+    gap:8px;
+    margin-top:10px;
+  }
+  #bodyCond   { grid-template-columns:1fr 1fr 1fr; }
+  #interiorCond{ grid-template-columns:1fr 1fr 1fr; }
+  #glassCond  { grid-template-columns:1fr 1fr; }
+
+  #bodyCond .segmented__input,
+  #interiorCond .segmented__input,
+  #glassCond .segmented__input{
+    position:absolute; opacity:0; pointer-events:none;
+  }
+  #bodyCond .segmented__btn,
+  #interiorCond .segmented__btn,
+  #glassCond .segmented__btn{
+    display:flex; align-items:center; justify-content:center;
+    min-height:44px; border-radius:14px;
+    background:#f1f5f9; border:1px solid rgba(148,163,184,0.45);
+    color:#334155; font-weight:800; font-size:12px; letter-spacing:0.6px;
+    cursor:pointer; user-select:none;
+    transition:background-color 160ms ease, border-color 160ms ease, color 160ms ease, box-shadow 160ms ease;
+  }
+  #bodyCond .segmented__btn:hover,
+  #interiorCond .segmented__btn:hover,
+  #glassCond .segmented__btn:hover{
+    filter:brightness(0.98); box-shadow:0 10px 22px rgba(15,23,42,0.08);
+  }
+  #bodyCond .segmented__input:checked + .segmented__btn,
+  #interiorCond .segmented__input:checked + .segmented__btn,
+  #glassCond .segmented__input:checked + .segmented__btn{
+    background:#2563eb; border-color:rgba(37,99,235,0.22);
+    color:#fff; box-shadow:0 14px 28px rgba(37,99,235,0.22);
+  }
+  #bodyCond .segmented__input:checked + .segmented__btn--bad,
+  #interiorCond .segmented__input:checked + .segmented__btn--bad,
+  #glassCond .segmented__input:checked + .segmented__btn--bad{
+    background:#ef4444; border-color:rgba(239,68,68,0.3); box-shadow:0 8px 20px rgba(239,68,68,0.25);
+  }
+  #bodyCond .segmented__input:checked + .segmented__btn--warn,
+  #interiorCond .segmented__input:checked + .segmented__btn--warn,
+  #glassCond .segmented__input:checked + .segmented__btn--warn{
+    background:#f97316; border-color:rgba(249,115,22,0.3); box-shadow:0 8px 20px rgba(249,115,22,0.25);
+  }
+  #bodyCond .segmented__input:checked + .segmented__btn--good,
+  #interiorCond .segmented__input:checked + .segmented__btn--good,
+  #glassCond .segmented__input:checked + .segmented__btn--good{
+    background:#16a34a; border-color:rgba(22,163,74,0.3); box-shadow:0 8px 20px rgba(22,163,74,0.25);
+  }
+  #bodyCond .segmented__btn--none,
+  #interiorCond .segmented__btn--none,
+  #glassCond .segmented__btn--none{ display:none; }
+
   /* Segmented (brakefluid MIN/NORM/MAX) */
   #gsm .segmented{
     display:grid;
@@ -684,6 +780,13 @@ body{
   #gsm .segmented__btn--none{
     display:none;
   }
+  /* Brake fluid per-value colors: MIN=orange, MAX=green */
+  #gsm .segmented__input:checked + .segmented__btn--warn{
+    background:#f97316; border-color:rgba(249,115,22,0.3); box-shadow:0 8px 20px rgba(249,115,22,0.25); color:#fff;
+  }
+  #gsm .segmented__input:checked + .segmented__btn--good{
+    background:#16a34a; border-color:rgba(22,163,74,0.3); box-shadow:0 8px 20px rgba(22,163,74,0.25); color:#fff;
+  }
 
   /* PT3 segmented (Wi‑Fi / VPN) — same component, different scope */
   #pt3 .segmented{
@@ -721,6 +824,17 @@ body{
     border-color: rgba(37,99,235,0.22);
     color:#ffffff;
     box-shadow: 0 14px 28px rgba(37,99,235,0.22);
+  }
+  #pt3 .segmented__btn--none{ display:none; }
+  /* WiFi/VPN per-value colors */
+  #pt3 .segmented__input:checked + .segmented__btn--bad{
+    background:#ef4444; border-color:rgba(239,68,68,0.3); box-shadow:0 8px 20px rgba(239,68,68,0.25); color:#fff;
+  }
+  #pt3 .segmented__input:checked + .segmented__btn--warn{
+    background:#f97316; border-color:rgba(249,115,22,0.3); box-shadow:0 8px 20px rgba(249,115,22,0.25); color:#fff;
+  }
+  #pt3 .segmented__input:checked + .segmented__btn--good{
+    background:#16a34a; border-color:rgba(22,163,74,0.3); box-shadow:0 8px 20px rgba(22,163,74,0.25); color:#fff;
   }
 
   /* PT3 (after "Продолжить") layout cleanup */
@@ -968,6 +1082,8 @@ body{
   align-items: flex-start;
   justify-content: center;
   padding: 18px;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 .msModal.hidden,
@@ -978,11 +1094,14 @@ body{
 .msModal__card{
   width: min(640px, 100%);
   margin-top: 8vh;
+  margin-bottom: 18px;
   background: #ffffff;
   border: 1px solid rgba(226,232,240,0.95);
   border-radius: 18px;
   box-shadow: 0 24px 60px rgba(15,23,42,0.18);
   overflow: hidden;
+  /* Let card grow naturally; parent .msModal scrolls on overflow */
+  flex-shrink: 0;
 }
 
 .msModal__header{
@@ -1032,10 +1151,12 @@ body{
 
 @media (max-width: 640px){
   .msModal{
-    padding: 12px;
+    padding: 8px;
+    align-items: flex-start;
   }
   .msModal__card{
-    margin-top: 5vh;
+    margin-top: 12px;
+    margin-bottom: 12px;
   }
   .msFormGrid{
     grid-template-columns: 1fr;
@@ -1223,6 +1344,181 @@ body{
   .btn--ghost:hover{ background: rgba(15,23,42,0.04); }
   .btn--ghost:active{ transform: translateY(1px) scale(0.99); }
 
+  .btn--warning{
+    background: #f59e0b;
+    color: #fff;
+    border-color: #f59e0b;
+    box-shadow: 0 4px 14px rgba(245,158,11,0.25);
+  }
+  .btn--warning:hover{ background: #d97706; border-color: #d97706; }
+  .btn--warning:active{ transform: translateY(1px) scale(0.99); }
+
+/* ── Russian License Plate ─────────────────────────────────────────────── */
+.rusPlate {
+  display: inline-flex;
+  border: 4px solid #1a1a1a;
+  border-radius: 10px;
+  background: #fff;
+  overflow: hidden;
+  height: 62px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+  font-family: 'Road Numbers', 'Arial Black', 'Arial', sans-serif;
+  user-select: none;
+  max-width: 100%;
+}
+.rusPlate__main {
+  display: flex;
+  align-items: center;
+  padding: 4px 14px 4px 10px;
+  font-size: 38px;
+  font-weight: 900;
+  letter-spacing: 3px;
+  color: #111;
+  gap: 2px;
+}
+.rusPlate__region {
+  border-left: 3px solid #1a1a1a;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 2px 10px;
+  min-width: 58px;
+  gap: 3px;
+}
+.rusPlate__regionNum {
+  font-size: 24px;
+  font-weight: 900;
+  line-height: 1;
+  color: #111;
+  letter-spacing: 1px;
+}
+.rusPlate__rusflag {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.rusPlate__rus {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  color: #111;
+  line-height: 1;
+}
+.rusPlate__flag {
+  width: 22px;
+  height: 14px;
+  background: linear-gradient(
+    to bottom,
+    #fff 0%, #fff 33.3%,
+    #003791 33.3%, #003791 66.6%,
+    #d52b1e 66.6%, #d52b1e 100%
+  );
+  border: 1px solid #ccc;
+  border-radius: 2px;
+}
+
+/* ── Car Card ───────────────────────────────────────────────────────────── */
+.carCardHeader {
+  margin-bottom: 0;
+  border-bottom-left-radius: 0 !important;
+  border-bottom-right-radius: 0 !important;
+  border-bottom: none !important;
+}
+.carCardHeaderBody {
+  display: flex;
+  gap: 20px;
+  align-items: flex-start;
+  flex-wrap: wrap;
+}
+.carCardPhotoWrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  flex-shrink: 0;
+  position: relative;
+}
+.carCardPhoto {
+  width: 240px;
+  height: 180px;
+  object-fit: cover;
+  border-radius: 14px;
+  border: 1px solid rgba(226,232,240,0.95);
+  display: block;
+}
+.carCardPhotoPlaceholder {
+  width: 240px;
+  height: 180px;
+  border-radius: 14px;
+  border: 2px dashed #e2e8f0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: #f8fafc;
+}
+.carCardPhotoOverlayBtn {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  background: rgba(15,23,42,0.55);
+  backdrop-filter: blur(4px);
+  border: none;
+  color: #fff;
+  font-size: 15px;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  transition: background 150ms;
+}
+.carCardPhotoOverlayBtn:hover { background: rgba(15,23,42,0.8); }
+.carCardInfo {
+  flex: 1;
+  min-width: 0;
+}
+.carCardTitle {
+  font-size: 22px;
+  font-weight: 900;
+  color: #0f172a;
+  margin-bottom: 10px;
+}
+.carCardMeta {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 14px;
+  color: #475569;
+}
+.carCardMeta strong { color: #0f172a; }
+.carCardTabs {
+  display: flex;
+  gap: 0;
+  margin-top: 20px;
+  border-bottom: none;
+}
+.carCardTab {
+  padding: 10px 20px;
+  font-size: 14px;
+  font-weight: 700;
+  border: 1px solid rgba(226,232,240,0.95);
+  border-bottom: none;
+  border-radius: 12px 12px 0 0;
+  background: #f1f5f9;
+  color: #64748b;
+  cursor: pointer;
+}
+.carCardTab.active {
+  background: #fff;
+  color: #0f172a;
+  border-bottom: 1px solid #fff;
+  margin-bottom: -1px;
+  z-index: 1;
+  position: relative;
+}
+
   /* Keep legacy disabled behavior */
   .inactive{
     opacity: 0.55;
@@ -1296,6 +1592,67 @@ body{
       padding: 12px 14px;
       font-size: 15px;
       min-height: 50px;
+    }
+
+    /* ── Car Card mobile ── */
+    #page-carcard {
+      padding: 10px !important;
+    }
+    .carCardHeaderBody {
+      flex-direction: column;
+      gap: 14px;
+    }
+    .carCardPhotoWrap {
+      width: 100%;
+    }
+    .carCardPhoto,
+    .carCardPhotoPlaceholder {
+      width: 100%;
+      height: 200px;
+    }
+    /* Плашка номера — уменьшаем на мобилке */
+    .rusPlate {
+      height: 48px;
+    }
+    .rusPlate__main {
+      font-size: 28px;
+      padding: 2px 10px 2px 8px;
+      letter-spacing: 2px;
+    }
+    .rusPlate__region {
+      padding: 2px 8px;
+      min-width: 48px;
+    }
+    .rusPlate__regionNum {
+      font-size: 18px;
+    }
+    .rusPlate__rus {
+      font-size: 8px;
+    }
+    .rusPlate__flag {
+      width: 18px;
+      height: 11px;
+    }
+    /* Таблица маршрутов — горизонтальный скролл */
+    #carCardTabRoutes .inspCard,
+    #carCardTabRoutes {
+      padding: 12px 8px;
+      overflow: visible;
+    }
+    #carCardTabRoutes > div[style*="overflow-x"] {
+      margin: 0 -8px;
+      padding: 0 8px;
+    }
+    #carCardRoutesTable th,
+    #carCardRoutesTable td {
+      padding: 6px 6px;
+      font-size: 11px;
+    }
+    .carCardTitle {
+      font-size: 18px;
+    }
+    .inspCard {
+      padding: 14px;
     }
   }
   
@@ -1396,6 +1753,29 @@ body{
     filter: brightness(0.9);
   }
 
+  /* Quick-exit warning button (yellow) */
+  .def_button--warn{
+    background-color: #d97706;
+    border-color: rgba(217,119,6,0.2);
+    box-shadow: 0 8px 24px rgba(217,119,6,0.22);
+  }
+  .def_button--warn:hover{
+    filter: brightness(0.96);
+    box-shadow: 0 10px 28px rgba(217,119,6,0.28);
+  }
+
+  /* Validation error banner */
+  #preCheckupErrors{
+    background: #fef2f2;
+    border: 1px solid rgba(239,68,68,0.35);
+    border-radius: 14px;
+    padding: 12px 16px;
+    font-size: 14px;
+    color: #b91c1c;
+    font-weight: 600;
+    margin: 4px 0 8px 0;
+  }
+
   .car:hover{
     background:#eee;
   }
@@ -1408,17 +1788,12 @@ body{
   }
 
   @font-face {
-    font-family: 'Lobster';
-    src: url('./lobster-regular.ttf');
-    font-weight: normal;
-    font-style: normal;
-  }
-
-  @font-face {
     font-family: 'Roboto';
-    src: url('./Roboto-Medium.ttf');
+    src: url('./Roboto-Medium.woff2?v=20260703') format('woff2'),
+         url('./Roboto-Medium.ttf?v=20260703') format('truetype');
     font-weight: normal;
     font-style: normal;
+    font-display: swap;
   }
 
   #carList::-webkit-scrollbar {
@@ -1446,6 +1821,7 @@ body{
     transition: background-color 160ms ease, border-color 160ms ease, filter 160ms ease;
     display: inline-block;
     vertical-align: middle;
+    flex-shrink: 0;
   }
 
   .msToggle__input::before{
@@ -1481,41 +1857,66 @@ body{
     border-color: rgba(239,68,68,0.55);
   }
 
-  .range-container {
-    display: flex;
-    align-items: center;
-    gap: 10px;
+  /* ── Pretty slider ── */
+  .sliderWrap{
+    margin-top: 10px;
   }
-  
-  input[type="range"] {
+
+  .prettyRange{
+    -webkit-appearance: none;
     appearance: none;
-    -webkit-appearance: none;
     width: 100%;
-    height: 20px;
-    border-radius: 10px;
+    height: 10px;
+    border-radius: 999px;
     outline: none;
-    background: linear-gradient(to right, red 0%, yellow 50%, green 100%);
-    background: gray;
-    margin: 5px;
+    background: #e2e8f0;
+    cursor: pointer;
+    display: block;
+    transition: filter 120ms ease;
   }
-  
-  /* кружок */
-  input[type="range"]::-webkit-slider-thumb {
+
+  .prettyRange:hover{ filter: brightness(0.97); }
+
+  .prettyRange::-webkit-slider-thumb{
     -webkit-appearance: none;
-    height: 20px;
-    width: 20px;
+    width: 28px;
+    height: 28px;
     border-radius: 50%;
-    background: #fff;
+    background: #ffffff;
+    border: 2px solid rgba(0,0,0,0.08);
+    box-shadow: 0 3px 12px rgba(0,0,0,0.18), 0 1px 4px rgba(0,0,0,0.12);
+    cursor: pointer;
+    transition: transform 120ms ease, box-shadow 120ms ease;
+  }
+
+  .prettyRange::-webkit-slider-thumb:hover{
+    transform: scale(1.08);
+    box-shadow: 0 5px 18px rgba(0,0,0,0.22), 0 1px 6px rgba(0,0,0,0.14);
+  }
+
+  .prettyRange:active::-webkit-slider-thumb{
+    transform: scale(1.12);
+  }
+
+  .prettyRange::-moz-range-thumb{
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    background: #ffffff;
+    border: 2px solid rgba(0,0,0,0.08);
+    box-shadow: 0 3px 12px rgba(0,0,0,0.18);
     cursor: pointer;
   }
-  
-  input[type="range"]::-moz-range-thumb {
-    height: 18px;
-    width: 18px;
-    border-radius: 50%;
-    background: #fff;
-    border: 2px solid #666;
-    cursor: pointer;
+
+  .sliderMarks{
+    display: flex;
+    justify-content: space-between;
+    margin-top: 7px;
+    font-size: 11px;
+    font-weight: 800;
+    color: #94a3b8;
+    letter-spacing: 0.9px;
+    padding: 0 2px;
   }
   
   /* Legacy segmented control styles (no longer used in markup, keep scoped & harmless) */
@@ -1754,3 +2155,230 @@ body{
   .visible{
     opacity: 1;
   }
+
+/* ── Routes ─────────────────────────────────────────────────────────────── */
+
+.routesBoard{
+  display: flex;
+  gap: 16px;
+  overflow-x: auto;
+  padding-bottom: 16px;
+  align-items: flex-start;
+}
+.routesBoard::-webkit-scrollbar{ height: 6px; }
+.routesBoard::-webkit-scrollbar-track{ background: transparent; }
+.routesBoard::-webkit-scrollbar-thumb{ background: #cbd5e1; border-radius: 3px; }
+
+/* ── Column ── */
+.routesCol{
+  flex: 0 0 240px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 18px;
+  overflow: hidden;
+  min-height: 140px;
+}
+
+.routesCol--transit{
+  border-color: #fde68a;
+  background: #fffbeb;
+}
+
+.routesCol__header{
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 11px 14px 10px;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.routesCol--transit .routesCol__header{
+  border-bottom-color: #fde68a;
+  background: linear-gradient(135deg,#fffbeb 0%,#fef3c7 100%);
+}
+
+.routesCol__title{
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+  color: #64748b;
+}
+
+.routesCol--transit .routesCol__title{
+  color: #b45309;
+}
+
+.routesCol__badge{
+  font-size: 11px;
+  font-weight: 700;
+  color: #64748b;
+  background: #e2e8f0;
+  border-radius: 20px;
+  padding: 1px 8px;
+  min-width: 22px;
+  text-align: center;
+  line-height: 18px;
+}
+
+.routesCol--transit .routesCol__badge{
+  background: #fde68a;
+  color: #92400e;
+}
+
+.routesCol__body{
+  padding: 10px 10px 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* ── Card ── */
+.routesCarCard{
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: #ffffff;
+  border: 1px solid #e8edf4;
+  border-left: 3px solid #94a3b8;
+  border-radius: 12px;
+  padding: 9px 11px 9px 10px;
+  cursor: pointer;
+  transition: box-shadow 0.15s, transform 0.1s;
+  box-shadow: 0 1px 3px rgba(15,23,42,0.06);
+}
+
+.routesCarCard:hover{
+  box-shadow: 0 4px 16px rgba(15,23,42,0.12);
+  transform: translateY(-1px);
+}
+
+.routesCarCard--transit{
+  border-left-color: #f59e0b;
+}
+
+/* ── Avatar ── */
+.rcAvatar{
+  flex-shrink: 0;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: #f1f5f9;
+  border: 1px solid #e2e8f0;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.rcAvatar__img{
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  padding: 5px;
+}
+
+.rcAvatar__fallback{
+  font-size: 17px;
+  font-weight: 800;
+  color: #94a3b8;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+}
+
+/* ── Card info ── */
+.rcInfo{
+  flex: 1;
+  min-width: 0;
+}
+
+.rcInfo__number{
+  font-weight: 700;
+  font-size: 13px;
+  color: #0f172a;
+  margin-bottom: 1px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.rcInfo__model{
+  font-size: 11px;
+  color: #94a3b8;
+  margin-bottom: 4px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.rcInfo__route{
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  font-weight: 700;
+  color: #d97706;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-bottom: 1px;
+}
+
+.rcInfo__driver{
+  font-size: 10px;
+  color: #94a3b8;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.rcInfo__parked{
+  font-size: 10px;
+  color: #22c55e;
+  font-weight: 600;
+}
+
+.rcEmpty{
+  color: #cbd5e1;
+  font-size: 12px;
+  text-align: center;
+  padding: 16px 0;
+}
+
+.routeArchiveItem{
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  background: #f8fafc;
+  font-size: 13px;
+}
+
+.routeArchiveItem__status{
+  font-size: 18px;
+  flex-shrink: 0;
+}
+
+.routeArchiveItem__body{
+  flex: 1;
+  min-width: 0;
+}
+
+.routeArchiveItem__route{
+  font-weight: 600;
+  color: #0f172a;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.routeArchiveItem__meta{
+  font-size: 11px;
+  color: #94a3b8;
+  margin-top: 2px;
+}

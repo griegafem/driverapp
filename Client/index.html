@@ -4,18 +4,26 @@
 <head>
 	<meta charset="UTF-8" name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 	<title>Осмотр авто</title>
-	<link rel="stylesheet" href="./styles.css?v=20260424_21">
+	<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%230f172a'/%3E%3Cpath d='M10 38c0-2 1-3 3-3l3-8c1-3 4-5 7-5h18c3 0 6 2 7 5l3 8c2 0 3 1 3 3v5c0 1-1 2-2 2h-3a5 5 0 0 1-10 0H24a5 5 0 0 1-10 0h-2c-1 0-2-1-2-2v-5z' fill='%23ffffff'/%3E%3Ccircle cx='19' cy='45' r='3' fill='%230f172a'/%3E%3Ccircle cx='45' cy='45' r='3' fill='%230f172a'/%3E%3Cpath d='M20 27h10v7H17l3-7zm7 0h10l3 7H27v-7z' fill='%230f172a'/%3E%3C/svg%3E">
+	<link rel="stylesheet" href="/driver-app/styles.css?v=20260703_2">
+	<link rel="modulepreload" href="/driver-app/app.js?v=20260507_36">
+	<link rel="modulepreload" href="/driver-app/js/api.js?v=20260507_36">
+	<link rel="modulepreload" href="/driver-app/js/dom.js?v=20260507_36">
+	<link rel="modulepreload" href="/driver-app/js/auth.js?v=20260507_36">
+	<link rel="modulepreload" href="/driver-app/js/carSelector.js?v=20260507_36">
+	<link rel="modulepreload" href="/driver-app/js/admin/locations.js?v=20260507_36">
 	<script>
 		// Optional override for API base URL (for prod/staging split).
 		// If empty/undefined, client will use current origin.
 		window.__API_BASE__ = window.__API_BASE__ || "";
+		// Fast redirect before any JS modules load — avoids blank screen on unauthenticated visits.
+		if (!localStorage.getItem('session')) window.location.replace('/login');
 	</script>
-	<script src="https://telegram.org/js/telegram-web-app.js"></script>
 </head>
 
 <body class="noselect">
 	
-	<div id="loading" style="position: fixed; width: 100%; height: 100%; z-index: 150; left: 0; top: 0;">
+	<div id="loading" class="hidden" style="position: fixed; width: 100%; height: 100%; z-index: 150; left: 0; top: 0; background: #fff;">
 		<div id="loading_label" style="text-align: center; font-family: Roboto; font-size: 30px; margin-top: 250px;">Подключение...</div>
 		<div id="access_form" style="position: relative; top: 35%; text-align: center;" class="hidden">
 			<div id="access_attention" style="font-family: Roboto; color: crimson; font-size: 20px; margin-bottom: 25px;">У вас нет доступа к приложению</div>
@@ -25,32 +33,18 @@
 
 	</div>
 
-	<div id="login-form" style="position: fixed; width: 100%; height: 100%; z-index: 150; left: 0; top: 0;" class="hidden">
-		<div id="login_brand" aria-hidden="true">
-			<img id="login_brand_logo" src="./assets/logo.png" alt="Motorsharks" />
-		</div>
-		<div id="login_card">
-			<div id="login_title">Вход в Motorsharks</div>
-			<div id="login_attention" class="hidden">Неверный логин/пароль</div>
-			<input id="login" class="def_input" placeholder="Логин">
-			<input id="password" type="password" class="def_input" placeholder="Пароль">
-			<button id="login_button" class="def_button inactive">Войти</button>
-			<div id="login_hint">Забыли пароль? Обратитесь к администратору системы</div>
-		</div>
-
-	</div>
 	
+	<button id="sidebarToggle" class="btn btn--ghost btn--sm" type="button" aria-label="Меню">☰</button>
+
 	<div id="dashboardTop" class="hidden">
-		<button id="sidebarToggle" class="btn btn--ghost btn--sm" type="button" aria-label="Меню">☰</button>
 		<div class="topbar">
-			<div class="topbar__left">
+			<div class="topbar__left"></div>
+			<div class="topbar__center">
 				<div id="date" class="meta meta--date">Дата: 12.12.12</div>
 				<div id="status" class="meta meta--user"></div>
 			</div>
-			<div class="topbar__center">
-				<div class="topbar__title">Motorsharks</div>
-			</div>
 			<div class="topbar__right">
+				<div class="topbar__brand">Автопарк</div>
 			</div>
 		</div>
 	</div>
@@ -59,26 +53,27 @@
 	<div id="sidebarOverlay" class="hidden" aria-hidden="true"></div>
 	<aside id="sidebar" class="hidden" aria-hidden="true">
 		<div class="sidebar__header">
-			<div class="sidebar__brand">Motorsharks</div>
+			<div class="sidebar__brand">Автопарк</div>
 			<button id="sidebarClose" class="btn btn--ghost btn--sm" type="button">✕</button>
 		</div>
 		<nav class="sidebar__nav">
-			<button id="sidebarGoHome" class="sidebar__item" type="button">CheckUp</button>
-			<button id="sidebarGoReports" class="sidebar__item hidden" type="button">Отчёты</button>
-			<button id="sidebarGoCars" class="sidebar__item hidden" type="button">Автомобили</button>
-			<button id="sidebarGoUsers" class="sidebar__item hidden" type="button">Пользователи</button>
+			<button id="sidebarGoHome" class="sidebar__item" type="button"><span class="sidebar__icon">🚗</span>CheckUp</button>
+			<button id="sidebarGoRoutes" class="sidebar__item hidden" type="button"><span class="sidebar__icon">🗺️</span>Маршруты</button>
+			<button id="sidebarGoReports" class="sidebar__item hidden" type="button"><span class="sidebar__icon">📊</span>Отчёты</button>
+			<button id="sidebarGoCars" class="sidebar__item hidden" type="button"><span class="sidebar__icon">🚙</span>Автомобили</button>
+			<button id="sidebarGoUsers" class="sidebar__item hidden" type="button"><span class="sidebar__icon">👥</span>Пользователи</button>
+			<button id="sidebarGoLocations" class="sidebar__item hidden" type="button"><span class="sidebar__icon">📍</span>Локации</button>
 		</nav>
 		<div class="sidebar__footer">
-			<button id="sidebarLogout" class="btn btn--danger" type="button">Выйти из системы</button>
+			<button id="sidebarLogout" class="btn btn--danger" type="button">🚪 Выйти из системы</button>
 		</div>
 	</aside>
 	
-	<div id="head_block" class="hidden" style="display: flex; height: 20px; margin-top: 15px;">
+	<div id="head_block" class="hidden" style="height: 20px; margin-top: 15px;">
 		<div id="number" style="font-family: Roboto;"></div>
 	</div>
 	
 	<!-- <div id="number" style="position: absolute; margin-top: 38px; left: 0; width: 100%; border-style: none; border-width: 1px;"></div> -->
-	<input id="photoInput" type="file" accept="image/*" hidden>
 	
     <!-- выбор авто -->
 	<div id="page-car" class="page active page--car">
@@ -94,7 +89,7 @@
 						</div>
 					</div>
 				</div>
-				<img class="vehicleCard__art" src="./assets/car-illustration.png" alt="" aria-hidden="true" />
+				<img class="vehicleCard__art" src="/driver-app/assets/car-illustration.png?v=20260703" alt="" aria-hidden="true" />
 				<div class="vehicleCard__actions">
 					<button id="carSelectClear" class="btn btn--ghost btn--sm hidden" type="button">Убрать</button>
 				</div>
@@ -104,7 +99,7 @@
 
 			<div class="actions">
 				<button id="reports_button" class="btn btn--secondary hidden">Отчёты</button>
-				<button id="pretrip_button" class="btn btn--primary inactive">🚗 Начать осмотр</button>
+				<button id="pretrip_button" class="btn btn--primary inactive">🚗 Выезд на маршрут</button>
 				<button id="posttrip_button" class="btn btn--secondary inactive">📍 Осмотр по прибытии</button>
 				<button id="offschedule_button" class="btn btn--secondary inactive">⚠️ Внеочередной осмотр</button>
 				<button id="help_button" class="btn btn--ghost">Help</button>
@@ -112,14 +107,154 @@
 		</div>
 	</div>
 
-	<div id="page-reports" class="page" style="margin-top: 50px;">
-		<button id="download_button" class="def_button">Скачать</button>
-		<button id="pre_report_button" class="def_button">Открыть отчёт до поездки</button>
-		<button id="post_report_button" class="def_button">Открыть отчёт по прибытии</button>
-		<button id="back_report_button" class="def_button">Назад</button>
+	<!-- ── Карточка автомобиля ─────────────────────────────────────────────── -->
+	<div id="page-carcard" class="page" style="padding: 16px; max-width: 900px; margin-left: auto; margin-right: auto;">
+		<button id="carCardBack" class="btn btn--ghost btn--sm" style="margin-bottom: 18px;">← Назад</button>
+
+		<!-- Header: photo + info -->
+		<div class="carCardHeader inspCard">
+			<div class="carCardHeaderBody">
+				<!-- Photo with overlay upload button -->
+				<div class="carCardPhotoWrap" id="carCardPhotoWrap">
+					<img id="carCardPhoto" class="carCardPhoto hidden" src="" alt="Фото авто" />
+					<div id="carCardPhotoPlaceholder" class="carCardPhotoPlaceholder">
+						<span style="font-size:36px;">🚗</span>
+						<span style="font-size:12px; color:#94a3b8; margin-top:4px;">Нет фото</span>
+					</div>
+					<label class="carCardPhotoOverlayBtn" title="Загрузить фото">
+						📷
+						<input id="carCardPhotoInput" type="file" accept="image/*" style="display:none;" />
+					</label>
+					<div id="carCardPhotoStatus" style="font-size:11px; color:#64748b; min-height:14px; text-align:center; margin-top:4px;"></div>
+				</div>
+
+				<!-- Info: plate + title + meta -->
+				<div class="carCardInfo">
+					<div id="carCardPlateWrap" style="margin-bottom: 12px;"></div>
+					<div id="carCardTitle" class="carCardTitle"></div>
+					<div id="carCardMeta" class="carCardMeta"></div>
+				</div>
+			</div>
+		</div>
+
+		<!-- Tabs -->
+		<div class="carCardTabs">
+			<button class="carCardTab active" data-tab="routes">🗺️ Маршруты</button>
+		</div>
+
+		<!-- Tab: routes -->
+		<div id="carCardTabRoutes" class="inspCard" style="margin-top: 0; border-top-left-radius: 0; border-top-right-radius: 0;">
+			<div id="carCardRoutesStatus" style="font-size:13px; color:#64748b; padding:8px 0;">Загрузка...</div>
+			<div style="overflow-x: auto; -webkit-overflow-scrolling: touch; margin: 0 -6px; padding: 0 6px;">
+				<table id="carCardRoutesTable" style="width:100%; min-width:560px; border-collapse:collapse; display:none;">
+					<thead>
+						<tr style="text-align:left; background:#f8fafc;">
+							<th style="padding:10px 8px; font-size:12px; color:#64748b; white-space:nowrap;">Водитель</th>
+							<th style="padding:10px 8px; font-size:12px; color:#64748b; white-space:nowrap;">Откуда</th>
+							<th style="padding:10px 8px; font-size:12px; color:#64748b; white-space:nowrap;">Куда</th>
+							<th style="padding:10px 8px; font-size:12px; color:#64748b; white-space:nowrap;">Создан</th>
+							<th style="padding:10px 8px; font-size:12px; color:#64748b; white-space:nowrap;">Прибыл</th>
+							<th style="padding:10px 8px; font-size:12px; color:#64748b; white-space:nowrap;">Статус</th>
+							<th style="padding:10px 8px; font-size:12px; color:#64748b; white-space:nowrap;">CheckUp до</th>
+							<th style="padding:10px 8px; font-size:12px; color:#64748b; white-space:nowrap;">CheckUp после</th>
+						</tr>
+					</thead>
+					<tbody id="carCardRoutesTbody"></tbody>
+				</table>
+			</div>
+		</div>
 	</div>
 
-	<div id="page-help" class="page" style="margin-top: 50px;">
+	<!-- ── Маршруты ─────────────────────────────────────────────────── -->
+	<div id="page-routes" class="page" style="padding: 16px;">
+
+		<!-- Кнопка создать (водитель) -->
+		<div id="routesDriverHeader" class="hidden">
+			<button id="routeCreateBtn" class="btn btn--primary" style="width:100%; margin-bottom:16px;">＋ Создать маршрут</button>
+
+			<!-- Активный маршрут -->
+			<div id="routeActiveWrap" class="hidden">
+				<div class="inspCard" style="border-left: 4px solid #f59e0b; margin-bottom:16px;">
+					<div style="display:flex; align-items:center; gap:8px; margin-bottom:10px;">
+						<span style="font-size:20px;">🟡</span>
+						<span style="font-weight:700; font-size:15px;">Активный маршрут</span>
+					</div>
+					<div id="routeActiveInfo" style="font-size:14px; color:#475569; line-height:1.7; margin-bottom:14px;"></div>
+					<div style="display:flex; gap:8px; flex-wrap:wrap;">
+						<button id="routeActivePreCheckup" class="btn btn--primary" style="flex:1;">🔍 Чек-ап перед выездом</button>
+						<button id="routeActiveComplete" class="btn btn--warning" style="flex:1;">✅ Завершить без осмотра</button>
+					</div>
+					<div style="margin-top:8px;">
+						<button id="routeActivePostCheckup" class="btn btn--secondary" style="width:100%;">🏁 Завершить маршрут с осмотром</button>
+					</div>
+				</div>
+			</div>
+
+			<!-- Архив маршрутов водителя -->
+			<div class="inspCard">
+				<h3 class="inspCard__title" style="margin-bottom:12px;">История маршрутов</h3>
+				<div id="routeDriverList" style="display:flex; flex-direction:column; gap:8px;">
+					<div style="color:#94a3b8; font-size:13px; text-align:center; padding:20px 0;">Загрузка...</div>
+				</div>
+			</div>
+		</div>
+
+		<!-- Доска для администратора -->
+		<div id="routesAdminBoard" class="hidden">
+			<div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:14px;">
+				<h3 class="inspCard__title" style="margin:0;">Состояние автопарка</h3>
+				<button id="routesBoardRefresh" class="btn btn--ghost btn--sm">↺ Обновить</button>
+			</div>
+			<div id="routesBoardWrap" class="routesBoard"></div>
+		</div>
+	</div>
+
+	<!-- Модалка создания маршрута -->
+	<div id="routeModalOverlay" class="msModalOverlay hidden" aria-hidden="true"></div>
+	<div id="routeModal" class="msModal hidden" role="dialog" aria-modal="true" aria-hidden="true">
+		<div class="msModal__card">
+			<div class="msModal__header">
+				<div class="msModal__title">Новый маршрут</div>
+			</div>
+			<div class="msModal__body" style="display:flex; flex-direction:column; gap:14px;">
+				<div style="position:relative;">
+					<div class="inspLabel">Автомобиль <span style="color:#ef4444;">*</span></div>
+					<input id="routeModalCarSearch" class="def_input" placeholder="Введите госномер или модель" autocomplete="off" spellcheck="false" style="width:100%; box-sizing:border-box;" />
+					<div id="routeModalCarList" class="vehicleCard__searchList hidden" style="position:absolute; top:100%; left:0; right:0; z-index:200; max-height:180px; overflow-y:auto; background:#fff; border:1px solid #e2e8f0; border-radius:12px; box-shadow:0 8px 24px rgba(15,23,42,0.12); margin-top:4px;"></div>
+					<div id="routeModalCarChosen" class="hidden" style="margin-top:6px; font-size:13px; font-weight:600; color:#0f172a; padding:8px 12px; background:#f0f9ff; border-radius:8px; border:1px solid #bae6fd;"></div>
+				</div>
+				<div>
+					<div class="inspLabel">Откуда</div>
+					<select id="routeFromSelect" class="def_input" style="width:100%; background:#fff;">
+						<option value="">— не указано —</option>
+					</select>
+				</div>
+				<div>
+					<div class="inspLabel">Куда <span style="color:#ef4444;">*</span></div>
+					<select id="routeToSelect" class="def_input" style="width:100%; background:#fff;">
+						<option value="">Выберите локацию</option>
+					</select>
+				</div>
+				<div id="routeModalStatus" style="font-size:13px; color:#ef4444; min-height:18px;"></div>
+			</div>
+			<div class="msModal__footer">
+				<button id="routeModalCreate" class="btn btn--success">✓ Создать</button>
+				<button id="routeModalCreateNoCheckup" class="btn btn--secondary">Без CheckUp</button>
+				<button id="routeModalCancel" class="btn btn--danger">Отмена</button>
+			</div>
+		</div>
+	</div>
+
+	<!-- ── /Маршруты ──────────────────────────────────────────────── -->
+
+	<div id="page-reports" class="page" style="padding: 16px;">
+		<button id="download_button" class="btn btn--secondary" style="width:100%; margin-bottom:10px;">Скачать таблицы</button>
+		<button id="pre_report_button" class="btn btn--secondary" style="width:100%; margin-bottom:10px;">Открыть отчёт до поездки</button>
+		<button id="post_report_button" class="btn btn--secondary" style="width:100%; margin-bottom:10px;">Открыть отчёт по прибытии</button>
+		<button id="back_report_button" class="btn btn--ghost" style="width:100%;">← Назад</button>
+	</div>
+
+	<div id="page-help" class="page" style="">
 		<button id="tg_button" class="def_button">Telegram</button>
 		<button id="max_button" class="def_button">Макс</button>
 		<button id="email_button" class="def_button">Email</button>
@@ -127,7 +262,7 @@
 		<div id="toast" style="opacity: 0; font-family: Roboto; text-align: center;" class="smooth">Email скопирован MYGaluev@mail.ru</div>
 	</div>
 
-	<div id="page-users" class="page" style="margin-top: 50px;">
+	<div id="page-users" class="page" style="">
 		<div class="inspCard">
 			<h3 class="inspCard__title">Пользователи</h3>
 			<div class="photoHelp" style="margin-bottom: 10px;">Доступно только администратору.</div>
@@ -154,7 +289,7 @@
 		</div>
 	</div>
 
-	<div id="page-cars" class="page" style="margin-top: 50px;">
+	<div id="page-cars" class="page" style="">
 		<div class="inspCard">
 			<h3 class="inspCard__title">Автомобили</h3>
 			<div id="carsStatus" class="photoHelp" style="margin: 6px 0 12px 0;"></div>
@@ -166,8 +301,8 @@
 							<th style="padding:10px; font-size:12px; color:#64748b;">ID</th>
 							<th style="padding:10px; font-size:12px; color:#64748b;">Номер</th>
 							<th style="padding:10px; font-size:12px; color:#64748b;">Марка</th>
-							<th style="padding:10px; font-size:12px; color:#64748b;">Цвет</th>
 							<th style="padding:10px; font-size:12px; color:#64748b;">VIN</th>
+							<th style="padding:10px; font-size:12px; color:#64748b;">Локация</th>
 							<th style="padding:10px; font-size:12px; color:#64748b;">Действия</th>
 						</tr>
 					</thead>
@@ -178,6 +313,77 @@
 			<div style="display:flex; gap:10px; margin-top: 14px; flex-wrap:wrap;">
 				<button id="carsOpenAdd" class="btn btn--primary" type="button" style="flex: 1 1 260px;">Добавить автомобиль</button>
 				<button id="carsBackBtn" class="btn btn--ghost" type="button">← Назад</button>
+			</div>
+		</div>
+	</div>
+
+	<div id="page-locations" class="page" style="">
+		<div class="inspCard">
+			<h3 class="inspCard__title">Локации</h3>
+			<div id="locationsStatus" class="photoHelp" style="margin: 6px 0 12px 0;"></div>
+
+			<div style="overflow:auto; border:1px solid rgba(226,232,240,0.95); border-radius: 16px;">
+				<table style="width:100%; border-collapse: collapse;">
+					<thead>
+						<tr style="text-align:left; background:#f8fafc;">
+							<th style="padding:10px; font-size:12px; color:#64748b;">ID</th>
+							<th style="padding:10px; font-size:12px; color:#64748b;">Название</th>
+							<th style="padding:10px; font-size:12px; color:#64748b;">Описание</th>
+							<th style="padding:10px; font-size:12px; color:#64748b;">Действия</th>
+						</tr>
+					</thead>
+					<tbody id="locationsTbody"></tbody>
+				</table>
+			</div>
+
+			<div style="display:flex; gap:10px; margin-top: 14px; flex-wrap:wrap;">
+				<button id="locationsOpenAdd" class="btn btn--primary" type="button" style="flex: 1 1 260px;">Добавить локацию</button>
+				<button id="locationsBackBtn" class="btn btn--ghost" type="button">← Назад</button>
+			</div>
+		</div>
+	</div>
+
+	<!-- Location modal -->
+	<div id="locationModalOverlay" class="msModalOverlay hidden" aria-hidden="true"></div>
+	<div id="locationModal" class="msModal hidden" role="dialog" aria-modal="true" aria-hidden="true">
+		<div class="msModal__card">
+			<div class="msModal__header">
+				<div id="locationModalTitle" class="msModal__title">Добавить локацию</div>
+			</div>
+			<div class="msModal__body">
+				<input id="locationEditId" type="hidden" value="" />
+				<div class="msFormGrid">
+					<div class="msFormRow">
+						<label class="msLabel" for="locationName">Название</label>
+						<input id="locationName" class="def_input" placeholder="Название локации" autocomplete="off" />
+					</div>
+					<div class="msFormRow">
+						<label class="msLabel" for="locationDescription">Описание</label>
+						<input id="locationDescription" class="def_input" placeholder="Описание (необязательно)" />
+					</div>
+				</div>
+				<div id="locationModalStatus" class="photoHelp" style="margin-top: 10px;"></div>
+			</div>
+			<div class="msModal__footer">
+				<button id="locationModalSubmit" class="btn btn--primary" type="button">Добавить</button>
+				<button id="locationModalCancel" class="btn btn--ghost" type="button">Отмена</button>
+			</div>
+		</div>
+	</div>
+
+	<!-- Confirm location delete modal -->
+	<div id="confirmLocationModalOverlay" class="msModalOverlay hidden" aria-hidden="true"></div>
+	<div id="confirmLocationModal" class="msModal hidden" role="dialog" aria-modal="true" aria-hidden="true">
+		<div class="msModal__card" style="width: min(520px, 100%);">
+			<div class="msModal__header">
+				<div class="msModal__title">Подтверждение</div>
+			</div>
+			<div class="msModal__body">
+				<div id="confirmLocationModalText" style="font-size:14px; color:#0f172a;">Вы точно уверены, что хотите удалить локацию?</div>
+			</div>
+			<div class="msModal__footer">
+				<button id="confirmLocationDeleteYes" class="btn btn--danger" type="button">Удалить</button>
+				<button id="confirmLocationDeleteNo" class="btn btn--ghost" type="button">Отмена</button>
 			</div>
 		</div>
 	</div>
@@ -206,10 +412,6 @@
 						<input id="carModel" class="def_input" placeholder="Модель" />
 					</div>
 					<div class="msFormRow">
-						<label class="msLabel" for="carColor">Цвет</label>
-						<input id="carColor" class="def_input" placeholder="Цвет" />
-					</div>
-					<div class="msFormRow">
 						<label class="msLabel" for="carVin">VIN</label>
 						<input id="carVin" class="def_input" placeholder="VIN" />
 					</div>
@@ -224,6 +426,15 @@
 					<div class="msFormRow">
 						<label class="msLabel" for="carResponsible">Ответственный</label>
 						<input id="carResponsible" class="def_input" placeholder="Ответственный" />
+					</div>
+					<div class="msFormRow">
+						<label class="msLabel" for="carCurrentLocation" style="display:flex; align-items:center; gap:6px;">
+							Текущая локация
+							<span class="tooltip-icon" title="Где сейчас находится автомобиль. Обновляется автоматически при завершении маршрута. Вы можете изменить вручную, если нужно скорректировать без маршрута.">ℹ️</span>
+						</label>
+						<select id="carCurrentLocation" class="def_input">
+							<option value="">— Не указана —</option>
+						</select>
 					</div>
 				</div>
 
@@ -323,22 +534,10 @@
 	</div>
 	
     <!-- осмотр -->
-	<div id="page-pretrip" class="page" style="margin-top: 50px;">
+	<div id="page-pretrip" class="page" style="">
 
+		<!-- ШАГ 1: Геолокация, фото авто, кузов, колёса, салон -->
 		<div id="pt1">
-
-			<div class="inspCard">
-				<h3 class="inspCard__title">Пробег</h3>
-				<div class="mileageRow">
-					<input id="mileage" type="number" class="def_input" placeholder="Введите актуальный пробег" inputmode="numeric">
-					<span class="unitKm" aria-hidden="true">КМ</span>
-				</div>
-			</div>
-
-			<div class="inspCard">
-				<h3 class="inspCard__title">Фото</h3>
-				<div id="photoChoice_mileage" class="photoChoice"></div>
-			</div>
 
 			<div class="inspCard" id="geo">
 				<h3 class="inspCard__title">Геолокация</h3>
@@ -346,28 +545,133 @@
 				<button id="getLocation_button" class="def_button">Получить геолокацию</button>
 			</div>
 
+			<div class="inspCard">
+				<h3 class="inspCard__title">Фото авто — 4 угла</h3>
+				<div class="photoHelp">Передний левый, передний правый, задний правый, задний левый</div>
+				<div class="photoGrid">
+					<div id="prePhoto_1"></div>
+					<div id="prePhoto_2"></div>
+					<div id="prePhoto_3"></div>
+					<div id="prePhoto_4"></div>
+				</div>
+			</div>
+
+			<div class="inspCard">
+				<h3 class="inspCard__title">Фото авто — стороны</h3>
+				<div class="photoHelp">Спереди, сзади, левая сторона, правая сторона</div>
+				<div class="photoGrid">
+					<div id="prePhoto_front"></div>
+					<div id="prePhoto_rear"></div>
+					<div id="prePhoto_left"></div>
+					<div id="prePhoto_right"></div>
+				</div>
+			</div>
+
+			<div class="inspCard">
+				<h3 class="inspCard__title">Состояние кузова</h3>
+				<div id="bodyCond" class="segmented" role="radiogroup" aria-label="Состояние кузова">
+					<input id="body_dirty"  name="body_condition" type="radio" value="dirty"  class="segmented__input" />
+					<label for="body_dirty"  class="segmented__btn segmented__btn--bad">Грязный</label>
+					<input id="body_dusty"  name="body_condition" type="radio" value="dusty"  class="segmented__input" />
+					<label for="body_dusty"  class="segmented__btn segmented__btn--warn">Пыльный</label>
+					<input id="body_clean"  name="body_condition" type="radio" value="clean"  class="segmented__input" />
+					<label for="body_clean"  class="segmented__btn segmented__btn--good">Чистый</label>
+					<input id="body_none"   name="body_condition" type="radio" value="NONE"   class="segmented__input" checked/>
+					<label for="body_none"   class="segmented__btn segmented__btn--none" aria-label="Не выбрано"></label>
+				</div>
+			</div>
+
+			<div id="wheels" class="inspCard">
+				<h3 class="inspCard__title">Колёса</h3>
+
+				<div class="commonRow">
+					<div class="commonRow__label">Есть повреждение или прокол</div>
+					<label class="msToggle">
+						<input type="checkbox" id="damagedwheelSwitch" class="msToggle__input msToggle__input--red">
+					</label>
+				</div>
+				<div id="damagedwheelAttention" class="photoHelp hidden" style="color:#ef4444;">Предупредим руководство. Сделай фото</div>
+				<div id="photoChoice_damagedwheel" class="photoChoice hidden">
+					<button id="damagedwheelPhoto_button" class="def_button">Сделать фото</button>
+				</div>
+
+				<div class="commonRow" style="margin-top:16px;">
+					<div class="commonRow__label">Колёса проверены, технически исправны</div>
+					<label class="msToggle">
+						<input type="checkbox" id="wheelokSwitch" class="msToggle__input">
+					</label>
+				</div>
+				<div id="wheelokInstruction" class="photoHelp hidden"></div>
+				<div id="photoChoice_wheelok" class="photoChoice hidden">
+					<button id="wheelokPhoto_button" class="def_button">Сделать фото</button>
+				</div>
+			</div>
+
+			<div class="inspCard">
+				<h3 class="inspCard__title">Фото салона</h3>
+				<div class="commonRow">
+					<div class="commonRow__label">Фото салона невозможны</div>
+					<label class="msToggle">
+						<input type="checkbox" id="impossibleSwitchPre" class="msToggle__input msToggle__input--red">
+					</label>
+				</div>
+				<div id="salonPhotosPre">
+					<div class="photoGrid" style="margin-top:12px;">
+						<div id="prePhoto_5"></div>
+						<div id="prePhoto_6"></div>
+					</div>
+					<div class="photoHelp" style="margin-top:8px;">Необязательно: задние двери</div>
+					<div class="photoGrid">
+						<div id="prePhoto_7"></div>
+						<div id="prePhoto_8"></div>
+					</div>
+				</div>
+			</div>
+
+			<div class="inspCard">
+				<h3 class="inspCard__title">Состояние салона</h3>
+				<div id="interiorCond" class="segmented" role="radiogroup" aria-label="Состояние салона">
+					<input id="int_damaged" name="interior_condition" type="radio" value="damaged"  class="segmented__input" />
+					<label for="int_damaged" class="segmented__btn segmented__btn--bad">Повреждён</label>
+					<input id="int_dirty"   name="interior_condition" type="radio" value="dirty"    class="segmented__input" />
+					<label for="int_dirty"   class="segmented__btn segmented__btn--warn">Грязный</label>
+					<input id="int_perfect" name="interior_condition" type="radio" value="perfect"  class="segmented__input" />
+					<label for="int_perfect" class="segmented__btn segmented__btn--good">Идеальный</label>
+					<input id="int_none"    name="interior_condition" type="radio" value="NONE"     class="segmented__input" checked/>
+					<label for="int_none"    class="segmented__btn segmented__btn--none" aria-label="Не выбрано"></label>
+				</div>
+			</div>
+
+			<div id="pt1Errors" class="hidden"></div>
+			<button id="topt2" class="def_button">Продолжить →</button>
+
+		</div>
+
+		<!-- ШАГ 2: ГСМ + доп. проверки -->
+		<div id="pt2" class="hidden">
+
+			<button id="pt2back" class="btn btn--ghost btn--sm" style="margin-bottom:12px;">← Назад</button>
+
 			<div class="inspCard" id="gsm">
 				<h3 class="inspCard__title">ГСМ</h3>
-				
-				<div id="oliLevel" class="gsmItem">
+
+				<div class="gsmItem">
 					<div class="gsmRow">
 						<div class="gsmLabel">Уровень масла проверен</div>
 						<label class="msToggle">
 							<input type="checkbox" id="oilSwitch" class="msToggle__input">
 						</label>
 					</div>
-
-					<div id="oilRange" class="gsmSub range-container hidden">
+					<div id="oilRange" class="gsmSub hidden">
 						<div id="oilValue" class="gsmValue">Уровень масла: —</div>
-						<div class="rangeRow">
-							<span class="rangeMark">MIN</span>
-							<input type="range" id="slider_oil" min="0" max="100" value="0">
-							<span class="rangeMark">MAX</span>
+						<div class="sliderWrap">
+							<input type="range" id="slider_oil" min="0" max="100" value="0" class="prettyRange">
+							<div class="sliderMarks"><span>MIN</span><span>MAX</span></div>
 						</div>
 					</div>
 				</div>
 
-				<div id="antifreeze" class="gsmItem">
+				<div class="gsmItem">
 					<div class="gsmRow">
 						<div class="gsmLabel">Уровень антифриза в норме</div>
 						<label class="msToggle">
@@ -376,31 +680,151 @@
 					</div>
 				</div>
 
-				<div id="brakefluid" class="gsmItem">
+				<div class="gsmItem">
 					<div class="gsmRow">
 						<div class="gsmLabel">Уровень тормозной жидкости</div>
 					</div>
 					<div class="segmented" role="radiogroup" aria-label="Уровень тормозной жидкости">
-						<input id="brake_min" name="brakefluid_switch" type="radio" value="MIN" class="segmented__input" />
-						<label for="brake_min" class="segmented__btn">MIN</label>
+						<input id="brake_min"  name="brakefluid_switch" type="radio" value="MIN"  class="segmented__input" />
+						<label for="brake_min"  class="segmented__btn segmented__btn--warn">MIN</label>
 						<input id="brake_norm" name="brakefluid_switch" type="radio" value="NORM" class="segmented__input" />
 						<label for="brake_norm" class="segmented__btn">NORM</label>
-						<input id="brake_max" name="brakefluid_switch" type="radio" value="MAX" class="segmented__input" />
-						<label for="brake_max" class="segmented__btn">MAX</label>
+						<input id="brake_max"  name="brakefluid_switch" type="radio" value="MAX"  class="segmented__input" />
+						<label for="brake_max"  class="segmented__btn segmented__btn--good">MAX</label>
 						<input id="brake_none" name="brakefluid_switch" type="radio" value="NONE" class="segmented__input" checked/>
 						<label for="brake_none" class="segmented__btn segmented__btn--none" aria-label="Не выбрано"></label>
 					</div>
 				</div>
 
-				<div id="glasswasher" class="gsmItem">
+				<div class="gsmItem">
 					<div class="gsmRow">
-						<div class="gsmLabel">Уровень омывающей жидкости более 80%</div>
+						<div class="gsmLabel">Омывающая жидкость заправлена (>80%)</div>
 						<label class="msToggle">
 							<input type="checkbox" id="glasswasherSwitch" class="msToggle__input">
 						</label>
 					</div>
 				</div>
+			</div>
 
+			<div class="inspCard">
+				<h3 class="inspCard__title">Дополнительные проверки</h3>
+
+				<div class="commonRow">
+					<div class="commonRow__label">Освещение проверено</div>
+					<label class="msToggle">
+						<input type="checkbox" id="lightingSwitch" class="msToggle__input">
+					</label>
+				</div>
+
+				<div class="commonRow">
+					<div class="commonRow__label">Аварийный набор присутствует</div>
+					<label class="msToggle">
+						<input type="checkbox" id="emergencyKitSwitch" class="msToggle__input">
+					</label>
+				</div>
+
+				<div class="gsmItem" style="margin-top:12px;">
+					<div class="gsmLabel" style="margin-bottom:8px;">Состояние стёкол</div>
+					<div id="glassCond" class="segmented" role="radiogroup" aria-label="Состояние стёкол">
+						<input id="glass_dirty" name="glass_condition" type="radio" value="dirty" class="segmented__input" />
+						<label for="glass_dirty" class="segmented__btn segmented__btn--warn">Грязные</label>
+						<input id="glass_clean" name="glass_condition" type="radio" value="clean" class="segmented__input" />
+						<label for="glass_clean" class="segmented__btn segmented__btn--good">Чистые</label>
+						<input id="glass_none"  name="glass_condition" type="radio" value="NONE"  class="segmented__input" checked/>
+						<label for="glass_none"  class="segmented__btn segmented__btn--none" aria-label="Не выбрано"></label>
+					</div>
+				</div>
+			</div>
+
+			<div id="pt2Errors" class="hidden"></div>
+			<button id="quickExitBtn" class="def_button def_button--warn">💣 Быстрый отчёт</button>
+
+			<button id="topt3" class="def_button">Продолжить →</button>
+
+		</div>
+
+		<!-- ШАГ 3: Пробег, топливо, документы, WiFi, фото дня -->
+		<div id="pt3" class="hidden">
+
+			<button id="pt3back" class="btn btn--ghost btn--sm" style="margin-bottom:12px;">← Назад</button>
+
+			<div class="inspCard">
+				<h3 class="inspCard__title">Пробег</h3>
+				<div class="mileageRow">
+					<input id="mileage" type="number" class="def_input" placeholder="Введите актуальный пробег" inputmode="numeric">
+					<span class="unitKm" aria-hidden="true">КМ</span>
+				</div>
+				<div id="photoChoice_mileage" class="photoChoice" style="margin-top:12px;"></div>
+			</div>
+
+			<div class="inspCard">
+				<h3 class="inspCard__title">Уровень топлива</h3>
+				<div id="fuelValue" class="gsmValue">Уровень топлива: —</div>
+				<div class="sliderWrap">
+					<input type="range" id="slider_fuel" min="0" max="100" value="0" class="prettyRange">
+					<div class="sliderMarks"><span>MIN</span><span>MAX</span></div>
+				</div>
+			</div>
+
+			<div class="inspCard">
+				<h3 class="inspCard__title">Приборная панель</h3>
+				<div id="panelOkRow" class="commonRow">
+					<div class="commonRow__label">Ошибок на панели нет</div>
+					<label class="msToggle">
+						<input type="checkbox" id="panelOkSwitchPre" class="msToggle__input">
+					</label>
+				</div>
+				<div id="photoBlock_panel_pre" class="hidden" style="margin-top:8px;"></div>
+				<div id="panelErrorRow" class="commonRow" style="margin-top:12px;">
+					<div class="commonRow__label" style="color:#ef4444;font-weight:700;">Ошибки на приборной панели есть</div>
+					<label class="msToggle">
+						<input type="checkbox" id="panelErrorSwitchPre" class="msToggle__input msToggle__input--red">
+					</label>
+				</div>
+			</div>
+
+			<div class="inspCard">
+				<h3 class="inspCard__title">Документы</h3>
+				<div class="commonRow">
+					<div class="commonRow__label">СТС присутствует</div>
+					<label class="msToggle">
+						<input type="checkbox" id="registrationSwitch" class="msToggle__input">
+					</label>
+				</div>
+				<div class="commonRow" style="margin-top:12px; flex-wrap:wrap; gap:8px;">
+					<div class="commonRow__label">ОСАГО действует до</div>
+					<input id="osago_date" type="text" class="def_input" placeholder="ДД.ММ.ГГГГ" inputmode="numeric" maxlength="10" style="max-width:160px; height:40px; font-size:15px;">
+				</div>
+			</div>
+
+			<div class="inspCard">
+				<h3 class="inspCard__title">Связь</h3>
+				<div id="wifi-container">
+					<div class="gsmLabel" style="margin-bottom:8px;">Wi‑Fi</div>
+					<div class="segmented" role="radiogroup" aria-label="Wi-Fi">
+						<input id="wifi_A" name="wifi_switch" type="radio" value="A" class="segmented__input"/>
+						<label for="wifi_A" class="segmented__btn segmented__btn--bad">Не работает</label>
+						<input id="wifi_B" name="wifi_switch" type="radio" value="B" class="segmented__input"/>
+						<label for="wifi_B" class="segmented__btn segmented__btn--warn" style="font-size:10px;">Не предусмотрен</label>
+						<input id="wifi_C" name="wifi_switch" type="radio" value="C" class="segmented__input"/>
+						<label for="wifi_C" class="segmented__btn segmented__btn--good">Работает</label>
+						<input id="wifi_none" name="wifi_switch" type="radio" value="NONE" class="segmented__input" checked/>
+						<label for="wifi_none" class="segmented__btn segmented__btn--none"></label>
+					</div>
+				</div>
+				<div id="vpn-container" style="margin-top:16px;">
+					<div class="gsmLabel" style="margin-bottom:8px;">VPN сервис</div>
+					<div class="segmented" role="radiogroup" aria-label="VPN">
+						<input id="vpn_A" name="vpn_switch" type="radio" value="A" class="segmented__input"/>
+						<label for="vpn_A" class="segmented__btn segmented__btn--bad">Не работает</label>
+						<input id="vpn_B" name="vpn_switch" type="radio" value="B" class="segmented__input"/>
+						<label for="vpn_B" class="segmented__btn segmented__btn--warn" style="font-size:10px;">Не предусмотрен</label>
+						<input id="vpn_C" name="vpn_switch" type="radio" value="C" class="segmented__input"/>
+						<label for="vpn_C" class="segmented__btn segmented__btn--good">Работает</label>
+						<input id="vpn_none" name="vpn_switch" type="radio" value="NONE" class="segmented__input" checked/>
+						<label for="vpn_none" class="segmented__btn segmented__btn--none"></label>
+					</div>
+				</div>
 			</div>
 
 			<div class="inspCard">
@@ -411,139 +835,14 @@
 				<textarea id="criticalinfo" class="def_input" rows="3"></textarea>
 			</div>
 
-			<button id="topt2" class="def_button">Продолжить</button>
-
-		</div>
-
-		<div id="pt2" class="hidden">
-
-			<div id="wheels" class="inspCard">
-				
-				<h3 class="inspCard__title">Колёса</h3>
-				
-				<div id="damagedwheel" style="font-family: Roboto; margin-top: 10px;">
-					<div style="display: flex; margin-top: 0px; font-family: Roboto;">Есть повреждение или прокол</div>
-					<label class="msToggle" style="position: absolute; margin-top: -23px; margin-left: 245px;">
-						<input type="checkbox" id="damagedwheelSwitch" class="msToggle__input msToggle__input--red">
-					</label>
-					<div id="damagedwheelAttention" style="position: absolute; margin-top: 5px; font-family: Arial, Helvetica, sans-serif; font-size: 15px; color: red;" class="hidden">Предупредим руководство. Сделай фото</div>
-				</div>
-
-				<div id="photoChoice_damagedwheel" style="margin-top: 20px;" class="photoChoice hidden">
-					<button id="damagedwheelPhoto_button" class="def_button" style="margin-right: 20px;">Сделать фото</button>
-					<button id="damagedwheelUpload_button" class="def_button" style="margin-right: 20px;">Загрузить фото из галереи...</button>
-				</div>
-
-				<div style="margin-top: 25px;">
-					<video id="video_damagedwheel" autoplay playsinline class="hidden" style="width: 95%;"></video>
-					<canvas id="canvas_damagedwheel" class="hidden" style="display: fixed; width: 95%;"></canvas>
-					<button id="snap_damagedwheel" class="def_button hidden">Сфоткать</button>
-					<button id="retry_damagedwheel" class="def_button hidden">Ещё раз</button>
-				</div>
-
-				<div id="wheelok" style="font-family: Roboto; margin-top: 35px;">
-					<div style="display: flex; margin-top: 0px; font-family: Roboto;">Колёса проверены и технически исправны</div>
-						<label class="msToggle" style="position: absolute; margin-top: -23px; margin-left: 340px;">
-							<input type="checkbox" id="wheelokSwitch" class="msToggle__input">
-						</label>
-					<div id="wheelokInstruction" style="position: absolute; margin-top: 3px; font-family: Arial, Helvetica, sans-serif; font-size: 15px;" class="hidden">Сделай фото переднего левого колеса</div>
-				</div>
-
-				<div id="photoChoice_wheelok" style="margin-top: 20px;" class="photoChoice hidden">
-					<button id="wheelokPhoto_button" class="def_button" style="margin-right: 20px;">Сделать фото</button>
-					<button id="wheelokUpload_button" class="def_button" style="margin-right: 20px;">Загрузить фото из галереи...</button>
-				</div>
-
-				<div style="margin-top: 25px;">
-					<video id="video_wheelok" autoplay playsinline class="hidden" style="width: 95%;"></video>
-					<canvas id="canvas_wheelok" class="hidden" style="display: fixed; width: 95%;"></canvas>
-					<button id="snap_wheelok" class="def_button hidden">Сфоткать</button>
-					<button id="retry_wheelok" class="def_button hidden">Ещё раз</button>
-				</div>
-
-			</div>
-
-			<div id="hz">
-				<div class="inspCard">
-					<h3 class="inspCard__title">Фото авто</h3>
-					<div class="photoHelp">Сделайте 4 фото авто с углов начиная с переднего левого, переднего правого и тд</div>
-					<div class="photoGrid">
-						<div id="prePhoto_1"></div>
-						<div id="prePhoto_2"></div>
-						<div id="prePhoto_3"></div>
-						<div id="prePhoto_4"></div>
-					</div>
-				</div>
-
-				<div class="inspCard">
-					<h3 class="inspCard__title">Фото салона</h3>
-					<div id="imposible_salon_pre" style="font-family: Roboto; margin-top: 8px; display: flex;">
-						<div style="display: flex; margin-top: 0px; font-family: Roboto;">Фото салона НЕВОЗМОЖНЫ</div>
-						<label class="msToggle" style="margin-left: 15px; margin-top: -3px;">
-							<input type="checkbox" id="impossibleSwitchPre" class="msToggle__input msToggle__input--red">
-						</label>
-					</div>
-
-					<div id="salonPhotosPre" class="photoGrid">
-						<div id="prePhoto_5"></div>
-						<div id="prePhoto_6"></div>
-						<div id="prePhoto_7"></div>
-						<div id="prePhoto_8"></div>
-					</div>
-				</div>
-			</div>
-
-			<button id="topt3" class="def_button">Продолжить</button>
-		
-		</div>
-
-		<div id="pt3" class="hidden">
-
-			<div id="common" class="inspCard">
-				<h3 class="inspCard__title">Общие</h3>
-
-				<div id="fuelLevel" class="commonBlock">
-					<div id="fuelValue" class="gsmValue">Уровень топлива: -</div>
-					<div class="rangeRow">
-						<span class="rangeMark">MIN</span>
-						<input type="range" id="slider_fuel" min="0" max="100" value="0">
-						<span class="rangeMark">MAX</span>
-					</div>
-				</div>
-
-				<div id="clean" class="commonRow">
-					<div class="commonRow__label">Автомобиль чистый</div>
-					<label class="msToggle">
-						<input type="checkbox" id="cleanSwitch" class="msToggle__input">
-					</label>
-				</div>
-
-				<div id="interior_ok" class="commonRow">
-					<div class="commonRow__label">Салон проверен и чист</div>
-					<label class="msToggle">
-						<input type="checkbox" id="interior_okSwitch" class="msToggle__input">
-					</label>
-				</div>
-
-				<div id="details_ok" class="commonRow">
-					<div class="commonRow__label">Сиденья, стёкла, коврики проверены</div>
-					<label class="msToggle">
-						<input type="checkbox" id="details_okSwitch" class="msToggle__input">
-					</label>
-				</div>
-
-				<div id="wifi-container" class="commonRow"></div>
-				<div id="vpn-container" class="commonRow"></div>
-			</div>
-
 			<div id="photoday" class="inspCard">
 				<h3 class="inspCard__title">Фото дня</h3>
-
-				<div id="photodayInstruction" class="photoHelp">Сделай фото переднего левого колеса</div>
+				<div id="photodayInstruction" class="photoHelp"></div>
 				<div id="photodayBlock"></div>
 			</div>
 
-			<div id="hi" style="font-family: Roboto; margin-top: 30px; text-align: center;">USERNAME, хорошего дня!</div>
+			<div id="hi" style="font-family: Roboto; margin-top: 30px; text-align: center;"></div>
+			<div id="preCheckupErrors" class="hidden"></div>
 			<button id="sendPreCheckUp" class="def_button">Завершить осмотр</button>
 
 		</div>
@@ -551,7 +850,7 @@
 	</div>
 
 	 <!-- осмотр по прибытии -->
-	<div id="page-posttrip" class="page " style="margin-top: 50px;">
+	<div id="page-posttrip" class="page " style="">
 		<button id="posttripBack" class="btn btn--ghost btn--sm" type="button" style="margin: 0 0 12px 0; width: fit-content;">
 			← Назад
 		</button>
@@ -626,10 +925,12 @@
 
 		<div id="post-location" class="inspCard">
 			<h3 class="inspCard__title">Местоположение авто</h3>
-			<div class="fieldLabel">Опиши где оставлен авто</div>
-			<input id="location_post" class="def_input" placeholder="Город, локация">
-			
-			<button id="getLocation_2" class="def_button">Получить геолокацию</button>
+			<div class="fieldLabel">Где оставлен автомобиль</div>
+			<select id="location_post" class="def_input" style="height:48px;">
+				<option value="">— Выберите локацию —</option>
+			</select>
+
+			<button id="getLocation_2" class="def_button" style="margin-top:10px;">Получить геолокацию</button>
 			<div id="coords_2" class="geoCoords"></div>
 		</div>
 
@@ -646,11 +947,11 @@
 	</div>
 	
     <!-- фото -->
-	<div id="page-photo" class="page" style="margin-top: 50px;">
+	<div id="page-photo" class="page" style="">
 		<div style="font-family: Roboto;">Сделайте фото</div>
 		<input id="cameraInput" type="file" accept="image/*" capture="environment" hidden>
-		<video id="video" autoplay playsinline style="display: fixed; width: 100%;"></video>
-		<canvas id="canvas" class="hidden" style="display: fixed; width: 100%;"></canvas>
+		<video id="video" autoplay playsinline style="display: none; width: 100%;"></video>
+		<canvas id="canvas" class="hidden" style="display: none; width: 100%;"></canvas>
 		<button id="snap" class="def_button">Сфоткать</button>
 		<button id="retry" class="def_button hidden">Ещё раз</button>
 		<div id="msg" style="display: none;">MSG</div>
@@ -659,7 +960,7 @@
 	</div>
 	
     <!-- геолокация -->
-	<div id="page-geo" class="page" style="margin-top: 50px;">
+	<div id="page-geo" class="page" style="">
 		<h3>Геолокация</h3>
 		<button id="getLocation" class="def_button">Получить геолокацию</button>
 		<div id="coords"></div>
@@ -670,14 +971,6 @@
 		<div id="info_photoBlockTemplate" style="display: none;">Описание</div>
 		<div id="photoChoice_photoBlockTemplate" class="photoChoice">
 			<button id="photoBlockTemplate_photo_button" class="def_button" style="margin-right: 20px;">Сделать фото</button>
-			<button id="photoBlockTemplate_upload_button" class=" def_button" style="margin-right: 20px;">Загрузить фото из галереи...</button>
-		</div>
-
-		<div style="margin-top: 25px;">
-			<video id="video_photoBlockTemplate" autoplay playsinline class="hidden" style="width: 95%;"></video>
-			<canvas id="canvas_photoBlockTemplate" class="hidden" style="display: fixed; width: 100px;"></canvas>
-			<button id="snap_photoBlockTemplate" class="def_button hidden">Сфоткать</button>
-			<button id="retry_photoBlockTemplate" class="def_button hidden">Ещё раз</button>
 		</div>
 	</div>
 
@@ -700,7 +993,8 @@
 		</div>
 	</div>
 
-	<script type="module" src="./app.js?v=20260424_19"></script>
+	<script defer src="https://telegram.org/js/telegram-web-app.js"></script>
+	<script type="module" src="/driver-app/app.js?v=20260507_36"></script>
 </body>
 
 </html>
