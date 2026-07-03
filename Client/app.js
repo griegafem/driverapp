@@ -1,10 +1,10 @@
 // Cache-bust ESM modules on deploys (Safari/iOS is especially aggressive here).
-const __v = "20260507_14";
-import { endpoint, postRequest } from "./js/api.js?v=20260507_14";
-import { get } from "./js/dom.js?v=20260507_14";
-import { initAuth } from "./js/auth.js?v=20260507_14";
-import { initCarSelector } from "./js/carSelector.js?v=20260507_14";
-import { initLocationsAdminUi } from "./js/admin/locations.js?v=20260507_14";
+const __v = "20260703_01";
+import { endpoint, postRequest } from "./js/api.js?v=20260703_01";
+import { get } from "./js/dom.js?v=20260703_01";
+import { initAuth } from "./js/auth.js?v=20260703_01";
+import { initCarSelector } from "./js/carSelector.js?v=20260703_01";
+import { initLocationsAdminUi } from "./js/admin/locations.js?v=20260703_01";
 
 // Always keep Help navigation working, even if legacy code below throws.
 // No internal links inside the button: just a hard navigation to /help.
@@ -2010,12 +2010,33 @@ function showStepError(elId, missing) {
 function validatePt1() {
 	const missing = [];
 	if (!checkUpPreData.geo) missing.push('Геолокация');
-	if (!checkUpPreData.photo_rl || !checkUpPreData.photo_rr ||
-	    !checkUpPreData.photo_br || !checkUpPreData.photo_bl)
+
+	const cornerLabels = [
+		[checkUpPreData.photo_rl, 'Передний левый угол'],
+		[checkUpPreData.photo_rr, 'Передний правый угол'],
+		[checkUpPreData.photo_br, 'Задний правый угол'],
+		[checkUpPreData.photo_bl, 'Задний левый угол'],
+	];
+	const missingCorners = cornerLabels.filter(([v]) => !v).map(([, n]) => n);
+	if (missingCorners.length === 4) {
 		missing.push('4 угловых фото');
-	if (!checkUpPreData.photo_r || !checkUpPreData.photo_b ||
-	    !checkUpPreData.photo_l || !checkUpPreData.photo_rg)
+	} else {
+		missingCorners.forEach(n => missing.push(n));
+	}
+
+	const sideLabels = [
+		[checkUpPreData.photo_r,  'Фото спереди'],
+		[checkUpPreData.photo_b,  'Фото сзади'],
+		[checkUpPreData.photo_l,  'Фото левой стороны'],
+		[checkUpPreData.photo_rg, 'Фото правой стороны'],
+	];
+	const missingSides = sideLabels.filter(([v]) => !v).map(([, n]) => n);
+	if (missingSides.length === 4) {
 		missing.push('4 фото сторон');
+	} else {
+		missingSides.forEach(n => missing.push(n));
+	}
+
 	const bodyCond = document.querySelector('input[name="body_condition"]:checked')?.value;
 	if (!bodyCond || bodyCond === 'NONE') missing.push('Состояние кузова');
 	const damaged = get('damagedwheelSwitch')?.checked;
@@ -2027,8 +2048,12 @@ function validatePt1() {
 		if (wheelOk && !checkUpPreData.random_wheel_photo) missing.push('Фото колёс');
 	}
 	if (!get('impossibleSwitchPre')?.checked) {
-		if (!checkUpPreData.photo_irl || !checkUpPreData.photo_irr)
+		if (!checkUpPreData.photo_irl && !checkUpPreData.photo_irr) {
 			missing.push('2 фото салона');
+		} else {
+			if (!checkUpPreData.photo_irl) missing.push('Фото салона — водительская дверь');
+			if (!checkUpPreData.photo_irr) missing.push('Фото салона — правая передняя дверь');
+		}
 	}
 	const interiorCond = document.querySelector('input[name="interior_condition"]:checked')?.value;
 	if (!interiorCond || interiorCond === 'NONE') missing.push('Состояние салона');
