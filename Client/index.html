@@ -999,7 +999,7 @@
 		</div>
 	</div>
 
-	<script>document.querySelector('link[rel=stylesheet]').addEventListener('load',function(){var s=document.getElementById('__splash');if(s)s.style.display='none';});</script>
+	<script>(function(){var r=function(){var s=document.getElementById('__splash');if(s)s.style.display='none';};var l=document.querySelector('link[rel=stylesheet]');if(l&&l.sheet){r();}else{l&&l.addEventListener('load',r);document.addEventListener('DOMContentLoaded',r);setTimeout(r,3000);}})();</script>
 	<script type="module" src="/driver-app/app.js?v=20260703_02"></script>
 </body>
 
