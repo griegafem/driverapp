@@ -14,12 +14,18 @@
 ## Logs
 *.log
 
+## Node
+**/node_modules/
+
 ## Local runtime data (do not commit)
 data/Photo/
 data/*.db
 data/*.db-*
 data/sessionstorage
 data/*.xlsx
+data/car-docs/
+data/car-photos/
+data/backup-*/
 
 ## Docker / compose local overrides
 docker-compose.override.yml

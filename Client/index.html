@@ -6,12 +6,12 @@
 	<title>Осмотр авто</title>
 	<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%230f172a'/%3E%3Cpath d='M10 38c0-2 1-3 3-3l3-8c1-3 4-5 7-5h18c3 0 6 2 7 5l3 8c2 0 3 1 3 3v5c0 1-1 2-2 2h-3a5 5 0 0 1-10 0H24a5 5 0 0 1-10 0h-2c-1 0-2-1-2-2v-5z' fill='%23ffffff'/%3E%3Ccircle cx='19' cy='45' r='3' fill='%230f172a'/%3E%3Ccircle cx='45' cy='45' r='3' fill='%230f172a'/%3E%3Cpath d='M20 27h10v7H17l3-7zm7 0h10l3 7H27v-7z' fill='%230f172a'/%3E%3C/svg%3E">
 	<link rel="stylesheet" href="/driver-app/styles.css?v=20260703_2">
-	<link rel="modulepreload" href="/driver-app/app.js?v=20260703_04">
+	<link rel="modulepreload" href="/driver-app/app.js?v=20260707_09">
 	<link rel="modulepreload" href="/driver-app/js/api.js?v=20260703_01">
 	<link rel="modulepreload" href="/driver-app/js/dom.js?v=20260703_01">
 	<link rel="modulepreload" href="/driver-app/js/auth.js?v=20260703_01">
 	<link rel="modulepreload" href="/driver-app/js/carSelector.js?v=20260703_01">
-	<link rel="modulepreload" href="/driver-app/js/admin/locations.js?v=20260703_01">
+	<link rel="modulepreload" href="/driver-app/js/admin/locations.js?v=20260707_08">
 	<script>
 		window.__API_BASE__ = window.__API_BASE__ || "";
 		if (!localStorage.getItem('session')) window.location.replace('/login');
@@ -131,6 +131,7 @@
 					<div id="carCardPlateWrap" style="margin-bottom: 12px;"></div>
 					<div id="carCardTitle" class="carCardTitle"></div>
 					<div id="carCardMeta" class="carCardMeta"></div>
+					<button id="carCardVisToggle" class="btn btn--xs" style="display:none; margin-top:8px; width:auto; font-size:12px; padding:5px 12px; border-radius:10px;"></button>
 				</div>
 			</div>
 		</div>
@@ -138,6 +139,7 @@
 		<!-- Tabs -->
 		<div class="carCardTabs">
 			<button class="carCardTab active" data-tab="routes">🗺️ Маршруты</button>
+			<button id="carCardTabDecommissionBtn" class="carCardTab hidden" data-tab="decommission">🚫 Вывод из парка</button>
 		</div>
 
 		<!-- Tab: routes -->
@@ -160,6 +162,11 @@
 					<tbody id="carCardRoutesTbody"></tbody>
 				</table>
 			</div>
+		</div>
+
+		<!-- Tab: decommission -->
+		<div id="carCardTabDecommission" class="inspCard hidden" style="margin-top: 0; border-top-left-radius: 0; border-top-right-radius: 0;">
+			<div id="carCardDecommissionBody" style="font-size:14px; color:#475569;"></div>
 		</div>
 	</div>
 
@@ -203,6 +210,12 @@
 				<h3 class="inspCard__title" style="margin:0;">Состояние автопарка</h3>
 				<button id="routesBoardRefresh" class="btn btn--ghost btn--sm">↺ Обновить</button>
 			</div>
+			<div style="display:flex; gap:10px; flex-wrap:wrap; margin-bottom:14px;">
+				<input id="routesBoardSearch" type="text" placeholder="🔍 Поиск по авто..." class="def_input" style="flex:1 1 200px; min-width:160px;">
+				<select id="routesBoardCity" class="def_input" style="flex:0 1 220px;">
+					<option value="">Все города</option>
+				</select>
+			</div>
 			<div id="routesBoardWrap" class="routesBoard"></div>
 		</div>
 	</div>
@@ -243,12 +256,43 @@
 		</div>
 	</div>
 
+	<!-- Модалка вывода авто из парка -->
+	<div id="decommModalOverlay" class="msModalOverlay hidden" aria-hidden="true"></div>
+	<div id="decommModal" class="msModal hidden" role="dialog" aria-modal="true" aria-hidden="true">
+		<div class="msModal__card">
+			<div class="msModal__header">
+				<div class="msModal__title">Вывод из автопарка</div>
+			</div>
+			<div class="msModal__body" style="display:flex; flex-direction:column; gap:14px;">
+				<div style="font-size:14px; color:#475569;">Авто: <strong id="decommCarLabel" style="color:#0f172a;"></strong></div>
+				<div style="font-size:13px; color:#b91c1c; background:#fef2f2; border:1px solid rgba(239,68,68,.25); border-radius:10px; padding:10px 12px;">
+					⚠️ Действие необратимо. Авто скроется из маршрутов и поиска, но останется в автопарке с историей.
+				</div>
+				<div>
+					<div class="inspLabel">Дата вывода <span style="color:#ef4444;">*</span></div>
+					<input id="decommDate" type="date" class="def_input" style="width:100%; box-sizing:border-box; background:#fff;" />
+				</div>
+				<div>
+					<div class="inspLabel">Документ (PDF / скан / скрин) <span style="color:#ef4444;">*</span></div>
+					<input id="decommFile" type="file" accept=".pdf,image/png,image/jpeg" class="def_input" style="width:100%; box-sizing:border-box;" />
+					<div style="font-size:11px; color:#94a3b8; margin-top:4px;">PDF, PNG или JPEG, до 25 МБ.</div>
+				</div>
+				<div id="decommStatus" style="font-size:13px; color:#ef4444; min-height:18px;"></div>
+			</div>
+			<div class="msModal__footer">
+				<button id="decommConfirm" class="btn btn--danger">🚫 Вывести из парка</button>
+				<button id="decommCancel" class="btn btn--ghost">Отмена</button>
+			</div>
+		</div>
+	</div>
+
 	<!-- ── /Маршруты ──────────────────────────────────────────────── -->
 
 	<div id="page-reports" class="page" style="padding: 16px;">
 		<button id="download_button" class="btn btn--secondary" style="width:100%; margin-bottom:10px;">Скачать таблицы</button>
 		<button id="pre_report_button" class="btn btn--secondary" style="width:100%; margin-bottom:10px;">Открыть отчёт до поездки</button>
 		<button id="post_report_button" class="btn btn--secondary" style="width:100%; margin-bottom:10px;">Открыть отчёт по прибытии</button>
+		<button id="tech_report_button" class="btn btn--secondary" style="width:100%; margin-bottom:10px;">Отчёт по внеочередным тех. осмотрам</button>
 		<button id="back_report_button" class="btn btn--ghost" style="width:100%;">← Назад</button>
 	</div>
 
@@ -273,7 +317,7 @@
 							<th style="padding:10px; font-size:12px; color:#64748b;">ФИО</th>
 							<th style="padding:10px; font-size:12px; color:#64748b;">Логин</th>
 							<th style="padding:10px; font-size:12px; color:#64748b;">Роль</th>
-							<th style="padding:10px; font-size:12px; color:#64748b;">Действия</th>
+							<th style="padding:10px; width:40px;"></th>
 						</tr>
 					</thead>
 					<tbody id="usersTbody"></tbody>
@@ -301,7 +345,7 @@
 							<th style="padding:10px; font-size:12px; color:#64748b;">Марка</th>
 							<th style="padding:10px; font-size:12px; color:#64748b;">VIN</th>
 							<th style="padding:10px; font-size:12px; color:#64748b;">Локация</th>
-							<th style="padding:10px; font-size:12px; color:#64748b;">Действия</th>
+							<th style="padding:10px; width:40px;"></th>
 						</tr>
 					</thead>
 					<tbody id="carsTbody"></tbody>
@@ -327,7 +371,7 @@
 							<th style="padding:10px; font-size:12px; color:#64748b;">ID</th>
 							<th style="padding:10px; font-size:12px; color:#64748b;">Название</th>
 							<th style="padding:10px; font-size:12px; color:#64748b;">Описание</th>
-							<th style="padding:10px; font-size:12px; color:#64748b;">Действия</th>
+							<th style="padding:10px; width:40px;"></th>
 						</tr>
 					</thead>
 					<tbody id="locationsTbody"></tbody>
@@ -408,6 +452,17 @@
 					<div class="msFormRow">
 						<label class="msLabel" for="carModel">Модель</label>
 						<input id="carModel" class="def_input" placeholder="Модель" />
+					</div>
+					<div class="msFormRow">
+						<label class="msLabel" for="carVehicleType">Тип ТС</label>
+						<select id="carVehicleType" class="def_input">
+							<option value="">— Не указан —</option>
+							<option value="Легковое авто">Легковое авто</option>
+							<option value="Грузовик">Грузовик</option>
+							<option value="Багги">Багги</option>
+							<option value="Снегоход">Снегоход</option>
+							<option value="Лодка">Лодка</option>
+						</select>
 					</div>
 					<div class="msFormRow">
 						<label class="msLabel" for="carVin">VIN</label>
@@ -803,7 +858,7 @@
 						<input id="wifi_A" name="wifi_switch" type="radio" value="A" class="segmented__input"/>
 						<label for="wifi_A" class="segmented__btn segmented__btn--bad">Не работает</label>
 						<input id="wifi_B" name="wifi_switch" type="radio" value="B" class="segmented__input"/>
-						<label for="wifi_B" class="segmented__btn segmented__btn--warn" style="font-size:10px;">Не предусмотрен</label>
+						<label for="wifi_B" class="segmented__btn segmented__btn--warn">Не предусмотрен</label>
 						<input id="wifi_C" name="wifi_switch" type="radio" value="C" class="segmented__input"/>
 						<label for="wifi_C" class="segmented__btn segmented__btn--good">Работает</label>
 						<input id="wifi_none" name="wifi_switch" type="radio" value="NONE" class="segmented__input" checked/>
@@ -816,7 +871,7 @@
 						<input id="vpn_A" name="vpn_switch" type="radio" value="A" class="segmented__input"/>
 						<label for="vpn_A" class="segmented__btn segmented__btn--bad">Не работает</label>
 						<input id="vpn_B" name="vpn_switch" type="radio" value="B" class="segmented__input"/>
-						<label for="vpn_B" class="segmented__btn segmented__btn--warn" style="font-size:10px;">Не предусмотрен</label>
+						<label for="vpn_B" class="segmented__btn segmented__btn--warn">Не предусмотрен</label>
 						<input id="vpn_C" name="vpn_switch" type="radio" value="C" class="segmented__input"/>
 						<label for="vpn_C" class="segmented__btn segmented__btn--good">Работает</label>
 						<input id="vpn_none" name="vpn_switch" type="radio" value="NONE" class="segmented__input" checked/>
@@ -849,101 +904,375 @@
 
 	 <!-- осмотр по прибытии -->
 	<div id="page-posttrip" class="page " style="">
-		<button id="posttripBack" class="btn btn--ghost btn--sm" type="button" style="margin: 0 0 12px 0; width: fit-content;">
-			← Назад
-		</button>
-		<div id="post-mileage" class="inspCard">
-			<h3 class="inspCard__title">Приборная панель</h3>
-			
-			<div id="panelerror" class="commonRow" style="margin-top: 10px;">
-				<div class="commonRow__label" style="font-weight: 600;">Ошибок на панели приборов нет</div>
-				<label class="msToggle">
-					<input type="checkbox" id="panelErrorSwitch" class="msToggle__input">
-				</label>
-			</div>
-			
-			<div id="photoBlock_panel" class="hidden"></div>
 
-			<div id="mileage_post_block" class="hidden">
-				<div class="mileageRow" style="margin-top: 12px;">
-					<input id="mileage_post" type="number" class="def_input" placeholder="Введите актуальный пробег">
-					<div class="unitKm">КМ</div>
+		<!-- ШАГ 1: фото авто, повреждения, локация, комментарии -->
+		<div id="post_pt1">
+			<button id="posttripBack" class="btn btn--ghost btn--sm" type="button" style="margin: 0 0 12px 0; width: fit-content;">
+				← Назад
+			</button>
+
+			<div id="post-damage" class="inspCard">
+				<h3 class="inspCard__title">Повреждения</h3>
+				<div class="commonRow" style="margin-top: 10px;">
+					<div class="commonRow__label" style="font-weight: 600;">Есть повреждения кузова</div>
+					<label class="msToggle">
+						<input type="checkbox" id="damageSwitchPost" class="msToggle__input msToggle__input--red">
+					</label>
+				</div>
+				<div id="damagePhoto" class="hidden">
+					<div class="photoHelp" style="color: #ef4444; margin-top: 8px;">Предупредим руководство. Сделай фото</div>
 				</div>
 			</div>
-		</div>
 
-		<div id="post-damage" class="inspCard">
-			<h3 class="inspCard__title">Повреждения</h3>
-			
-			<div class="commonRow" style="margin-top: 10px;">
-				<div class="commonRow__label" style="font-weight: 600;">Есть повреждения кузова</div>
-				<label class="msToggle">
-					<input type="checkbox" id="damageSwitchPost" class="msToggle__input msToggle__input--red">
-				</label>
+			<div id="post-car-photos" class="inspCard">
+				<h3 class="inspCard__title">Фото авто — 4 угла</h3>
+				<div class="photoGrid">
+					<div id="postPhoto_1"></div>
+					<div id="postPhoto_2"></div>
+					<div id="postPhoto_3"></div>
+					<div id="postPhoto_4"></div>
+				</div>
 			</div>
 
-			<div id="damagePhoto" class="hidden">
-				<div id="damagedwheelAttention" class="photoHelp" style="color: #ef4444; margin-top: 8px;">Предупредим руководство. Сделай фото</div>
+			<div id="post-salon-photos" class="inspCard">
+				<h3 class="inspCard__title">Фото салона</h3>
+				<div id="imposible_salon" class="commonRow" style="margin-top: 10px;">
+					<div class="commonRow__label" style="font-weight: 600;">Фото салона невозможны</div>
+					<label class="msToggle">
+						<input type="checkbox" id="impossibleSwitch" class="msToggle__input msToggle__input--red">
+					</label>
+				</div>
+				<div id="salonPhotos" class="photoGrid">
+					<div id="postPhoto_5"></div>
+					<div id="postPhoto_6"></div>
+					<div id="postPhoto_7"></div>
+					<div id="postPhoto_8"></div>
+				</div>
 			</div>
-		</div>
 
-		<div id="post-car-photos" class="inspCard">
-			<h3 class="inspCard__title">Фото авто</h3>
-			<div class="photoGrid" id="postCarPhotosGrid">
-				<div id="postPhoto_1"></div>
-				<div id="postPhoto_2"></div>
-				<div id="postPhoto_3"></div>
-				<div id="postPhoto_4"></div>
+			<div id="post-photoday" class="inspCard">
+				<h3 class="inspCard__title">Фото дня</h3>
+				<div id="photodayInstruction_2" class="photoHelp">Сделай фото переднего левого колеса</div>
+				<div id="postPhoto_9"></div>
 			</div>
-		</div>
 
-		<div id="post-salon-photos" class="inspCard">
-			<h3 class="inspCard__title">Фото салона</h3>
-
-			<div id="imposible_salon" class="commonRow" style="margin-top: 10px;">
-				<div class="commonRow__label" style="font-weight: 600;">Фото салона невозможны</div>
-				<label class="msToggle">
-					<input type="checkbox" id="impossibleSwitch" class="msToggle__input msToggle__input--red">
-				</label>
+			<div id="post-location" class="inspCard">
+				<h3 class="inspCard__title">Местоположение авто</h3>
+				<div class="fieldLabel">Где оставлен автомобиль</div>
+				<select id="location_post" class="def_input" style="height:48px;">
+					<option value="">— Выберите локацию —</option>
+				</select>
+				<button id="getLocation_2" class="def_button" style="margin-top:10px;">Получить геолокацию</button>
+				<div id="coords_2" class="geoCoords"></div>
 			</div>
-			
-			<div id="salonPhotos" class="photoGrid">
-				<div id="postPhoto_5"></div>
-				<div id="postPhoto_6"></div>
-				<div id="postPhoto_7"></div>
-				<div id="postPhoto_8"></div>
+
+			<div id="post-extra" class="inspCard">
+				<h3 class="inspCard__title">Дополнительно</h3>
+				<div class="fieldLabel">Для информации <span class="muted">(*необязательно)</span></div>
+				<textarea id="additionalinfo_post" class="def_input" placeholder=""></textarea>
+				<div class="fieldLabel" style="margin-top: 12px;">Критические замечания <span class="muted">(*необязательно)</span></div>
+				<textarea id="criticalinfo_post" class="def_input" placeholder=""></textarea>
 			</div>
+
+			<div id="postPt1Errors" class="hidden"></div>
+			<button id="post_topt2" class="def_button">Продолжить →</button>
 		</div>
 
-		<div id="post-photoday" class="inspCard">
-			<h3 class="inspCard__title">Фото дня</h3>
-			<div id="photodayInstruction_2" class="photoHelp">Сделай фото переднего левого колеса</div>
-			<div id="postPhoto_9"></div>
+		<!-- ШАГ 2: ГСМ, освещение, аварийный набор, стёкла -->
+		<div id="post_pt2" class="hidden">
+			<button id="post_pt2back" class="btn btn--ghost btn--sm" style="margin-bottom:12px;">← Назад</button>
+
+			<div class="inspCard" id="post-gsm">
+				<h3 class="inspCard__title">ГСМ</h3>
+
+				<div class="gsmItem">
+					<div class="gsmRow">
+						<div class="gsmLabel">Уровень масла проверен и в норме</div>
+						<label class="msToggle">
+							<input type="checkbox" id="postOilSwitch" class="msToggle__input">
+						</label>
+					</div>
+					<div id="postOilRange" class="gsmSub hidden">
+						<div id="postOilValue" class="gsmValue">Уровень масла: —</div>
+						<div class="sliderWrap">
+							<input type="range" id="post_slider_oil" min="0" max="100" value="0" class="prettyRange">
+							<div class="sliderMarks"><span>MIN</span><span>MAX</span></div>
+						</div>
+					</div>
+				</div>
+
+				<div class="gsmItem">
+					<div class="gsmRow">
+						<div class="gsmLabel">Уровень охлаждающей жидкости в норме</div>
+						<label class="msToggle">
+							<input type="checkbox" id="postCoolantSwitch" class="msToggle__input">
+						</label>
+					</div>
+				</div>
+
+				<div class="gsmItem">
+					<div class="gsmRow">
+						<div class="gsmLabel">Уровень тормозной жидкости</div>
+					</div>
+					<div class="segmented" role="radiogroup" aria-label="Тормозная жидкость">
+						<input id="post_brake_min"  name="post_brakefluid" type="radio" value="MIN"  class="segmented__input" />
+						<label for="post_brake_min"  class="segmented__btn segmented__btn--warn">MIN</label>
+						<input id="post_brake_norm" name="post_brakefluid" type="radio" value="NORM" class="segmented__input" />
+						<label for="post_brake_norm" class="segmented__btn">NORM</label>
+						<input id="post_brake_max"  name="post_brakefluid" type="radio" value="MAX"  class="segmented__input" />
+						<label for="post_brake_max"  class="segmented__btn segmented__btn--good">MAX</label>
+						<input id="post_brake_none" name="post_brakefluid" type="radio" value="NONE" class="segmented__input" checked/>
+						<label for="post_brake_none" class="segmented__btn segmented__btn--none" aria-label="Не выбрано"></label>
+					</div>
+				</div>
+
+				<div class="gsmItem">
+					<div class="gsmRow">
+						<div class="gsmLabel">Омывающая/Незамерзающая жидкость залита</div>
+						<label class="msToggle">
+							<input type="checkbox" id="postWasherSwitch" class="msToggle__input">
+						</label>
+					</div>
+				</div>
+			</div>
+
+			<div class="inspCard">
+				<h3 class="inspCard__title">Дополнительные проверки</h3>
+
+				<div class="commonRow">
+					<div class="commonRow__label">Освещение автомобиля проверено</div>
+					<label class="msToggle">
+						<input type="checkbox" id="postLightingSwitch" class="msToggle__input">
+					</label>
+				</div>
+
+				<div class="commonRow" style="margin-top:12px;">
+					<div class="commonRow__label">Аварийный набор в полном комплекте</div>
+					<label class="msToggle">
+						<input type="checkbox" id="postEmergencyKitSwitch" class="msToggle__input">
+					</label>
+				</div>
+
+				<div class="gsmItem" style="margin-top:12px;">
+					<div class="gsmLabel" style="margin-bottom:8px;">Состояние стёкол</div>
+					<div class="segmented" role="radiogroup" aria-label="Состояние стёкол">
+						<input id="post_glass_dirty" name="post_glass_condition" type="radio" value="dirty" class="segmented__input" />
+						<label for="post_glass_dirty" class="segmented__btn segmented__btn--warn">Грязные</label>
+						<input id="post_glass_clean" name="post_glass_condition" type="radio" value="clean" class="segmented__input" />
+						<label for="post_glass_clean" class="segmented__btn segmented__btn--good">Чистые</label>
+						<input id="post_glass_none"  name="post_glass_condition" type="radio" value="NONE"  class="segmented__input" checked/>
+						<label for="post_glass_none"  class="segmented__btn segmented__btn--none" aria-label="Не выбрано"></label>
+					</div>
+				</div>
+			</div>
+
+			<div id="postPt2Errors" class="hidden"></div>
+			<button id="post_topt3" class="def_button">Продолжить →</button>
 		</div>
 
-		<div id="post-location" class="inspCard">
-			<h3 class="inspCard__title">Местоположение авто</h3>
-			<div class="fieldLabel">Где оставлен автомобиль</div>
-			<select id="location_post" class="def_input" style="height:48px;">
-				<option value="">— Выберите локацию —</option>
-			</select>
+		<!-- ШАГ 3: Топливо, панель, фото, документы, интернет -->
+		<div id="post_pt3" class="hidden">
+			<button id="post_pt3back" class="btn btn--ghost btn--sm" style="margin-bottom:12px;">← Назад</button>
 
-			<button id="getLocation_2" class="def_button" style="margin-top:10px;">Получить геолокацию</button>
-			<div id="coords_2" class="geoCoords"></div>
+			<div class="inspCard">
+				<h3 class="inspCard__title">Уровень топлива</h3>
+				<div id="postFuelValue" class="gsmValue">Уровень топлива: —</div>
+				<div class="sliderWrap">
+					<input type="range" id="post_slider_fuel" min="0" max="100" value="0" class="prettyRange">
+					<div class="sliderMarks"><span>MIN</span><span>MAX</span></div>
+				</div>
+			</div>
+
+			<div class="inspCard">
+				<h3 class="inspCard__title">Приборная панель</h3>
+				<div class="commonRow">
+					<div class="commonRow__label" style="color:#ef4444;">Есть ошибки на панели</div>
+					<label class="msToggle">
+						<input type="checkbox" id="postPanelErrorSwitch" class="msToggle__input msToggle__input--red">
+					</label>
+				</div>
+				<div class="commonRow" style="margin-top:12px;">
+					<div class="commonRow__label">Ошибок нет</div>
+					<label class="msToggle">
+						<input type="checkbox" id="postPanelOkSwitch" class="msToggle__input">
+					</label>
+				</div>
+				<div id="post_photoBlock_panel" style="margin-top:12px;"></div>
+				<div id="post_mileage_block" style="margin-top:12px;">
+					<div class="fieldLabel">Пробег по прибытии</div>
+					<div class="mileageRow">
+						<input id="mileage_post" type="number" class="def_input" placeholder="Введите актуальный пробег" inputmode="numeric">
+						<span class="unitKm">КМ</span>
+					</div>
+				</div>
+			</div>
+
+			<div class="inspCard">
+				<h3 class="inspCard__title">Зарядные провода</h3>
+				<div class="fieldLabel" style="margin-bottom:8px;">Фото зарядных проводов (USB-C + Lightning)</div>
+				<div id="post_photoBlock_charger"></div>
+			</div>
+
+			<div class="inspCard">
+				<h3 class="inspCard__title">Документы</h3>
+				<div class="commonRow">
+					<div class="commonRow__label">СТС в наличии</div>
+					<label class="msToggle">
+						<input type="checkbox" id="postRegistrationSwitch" class="msToggle__input">
+					</label>
+				</div>
+				<div id="postOsagoDateRow" class="commonRow" style="margin-top:12px; flex-wrap:wrap; gap:8px;">
+					<div class="commonRow__label">ОСАГО действует до</div>
+					<input id="post_osago_date" type="text" class="def_input" placeholder="ДД.ММ.ГГГГ" inputmode="numeric" maxlength="10" style="max-width:160px; height:40px; font-size:15px;">
+				</div>
+				<div class="commonRow" style="margin-top:12px;" id="postOsagoMissingRow">
+					<div class="commonRow__label" style="color:#ef4444;">Полиса нет</div>
+					<label class="msToggle">
+						<input type="checkbox" id="postOsagoMissingSwitch" class="msToggle__input msToggle__input--red">
+					</label>
+				</div>
+			</div>
+
+			<div class="inspCard">
+				<h3 class="inspCard__title">Wi-Fi / Интернет</h3>
+				<div class="segmented" role="radiogroup" aria-label="Wi-Fi / Интернет">
+					<input id="post_wifi_A"    name="post_wifi_switch" type="radio" value="A"    class="segmented__input"/>
+					<label for="post_wifi_A"    class="segmented__btn segmented__btn--bad">Не работает</label>
+					<input id="post_wifi_B"    name="post_wifi_switch" type="radio" value="B"    class="segmented__input"/>
+					<label for="post_wifi_B"    class="segmented__btn segmented__btn--warn">Не предусмотрен</label>
+					<input id="post_wifi_C"    name="post_wifi_switch" type="radio" value="C"    class="segmented__input"/>
+					<label for="post_wifi_C"    class="segmented__btn segmented__btn--good">Работает</label>
+					<input id="post_wifi_none" name="post_wifi_switch" type="radio" value="NONE" class="segmented__input" checked/>
+					<label for="post_wifi_none" class="segmented__btn segmented__btn--none"></label>
+				</div>
+			</div>
+
+			<div class="inspCard">
+				<h3 class="inspCard__title">VPN</h3>
+				<div class="segmented" role="radiogroup" aria-label="VPN">
+					<input id="post_vpn_A"    name="post_vpn_switch" type="radio" value="A"    class="segmented__input"/>
+					<label for="post_vpn_A"    class="segmented__btn segmented__btn--bad">Не работает</label>
+					<input id="post_vpn_B"    name="post_vpn_switch" type="radio" value="B"    class="segmented__input"/>
+					<label for="post_vpn_B"    class="segmented__btn segmented__btn--warn">Не предусмотрен</label>
+					<input id="post_vpn_C"    name="post_vpn_switch" type="radio" value="C"    class="segmented__input"/>
+					<label for="post_vpn_C"    class="segmented__btn segmented__btn--good">Работает</label>
+					<input id="post_vpn_none" name="post_vpn_switch" type="radio" value="NONE" class="segmented__input" checked/>
+					<label for="post_vpn_none" class="segmented__btn segmented__btn--none"></label>
+				</div>
+			</div>
+
+			<div id="postPt3Errors" class="hidden"></div>
+			<button id="sendPostCheckUp" class="def_button" style="background:#16a34a;">Завершить маршрут и осмотр</button>
 		</div>
 
-		<div id="post-extra" class="inspCard">
-			<h3 class="inspCard__title">Дополнительно</h3>
-			<div class="fieldLabel">Для информации (*необязательно)</div>
-			<textarea id="additionalinfo_post" class="def_input" placeholder=""></textarea>
-			<div class="fieldLabel" style="margin-top: 12px;">Критические замечания (*необязательно)</div>
-			<textarea id="criticalinfo_post" class="def_input" placeholder=""></textarea>
-		</div>
-
-		<button id="sendPostCheckUp" class="def_button">Завершить осмотр</button>
-	
 	</div>
 	
+	<!-- Внеочередная тех.проверка -->
+	<div id="page-techcheck" class="page">
+
+		<!-- ШАГ 1: геолокация, фото авто, колёса -->
+		<div id="tech_pt1">
+			<button id="techcheckBack" class="btn btn--ghost btn--sm" type="button" style="margin: 0 0 12px 0; width: fit-content;">
+				← Назад
+			</button>
+
+			<div class="inspCard" id="tech_geo">
+				<h3 class="inspCard__title">Геолокация</h3>
+				<div id="tech_coords" class="geoCoords"></div>
+				<button id="tech_getLocation" class="def_button">Получить геолокацию</button>
+			</div>
+
+			<div class="inspCard">
+				<h3 class="inspCard__title">Фото ТС — 4 угла</h3>
+				<div class="photoHelp">Передний левый, передний правый, задний правый, задний левый</div>
+				<div class="photoGrid">
+					<div id="techPhoto_rl"></div>
+					<div id="techPhoto_rr"></div>
+					<div id="techPhoto_br"></div>
+					<div id="techPhoto_bl"></div>
+				</div>
+			</div>
+
+			<div class="inspCard">
+				<h3 class="inspCard__title">Фото ТС — стороны</h3>
+				<div class="photoHelp">Спереди, сзади, левая сторона, правая сторона</div>
+				<div class="photoGrid">
+					<div id="techPhoto_front"></div>
+					<div id="techPhoto_rear"></div>
+					<div id="techPhoto_left"></div>
+					<div id="techPhoto_right"></div>
+				</div>
+			</div>
+
+			<div class="inspCard">
+				<h3 class="inspCard__title">Колёса — передние</h3>
+				<div class="photoGrid">
+					<div id="techPhoto_wfl"></div>
+					<div id="techPhoto_wfl_t"></div>
+					<div id="techPhoto_wfr"></div>
+					<div id="techPhoto_wfr_t"></div>
+				</div>
+				<div class="photoHelp" style="margin-top:4px;">Пер.лев вид · Пер.лев протектор · Пер.прав вид · Пер.прав протектор</div>
+			</div>
+
+			<div class="inspCard">
+				<h3 class="inspCard__title">Колёса — задние</h3>
+				<div class="photoGrid">
+					<div id="techPhoto_wrl"></div>
+					<div id="techPhoto_wrl_t"></div>
+					<div id="techPhoto_wrr"></div>
+					<div id="techPhoto_wrr_t"></div>
+				</div>
+				<div class="photoHelp" style="margin-top:4px;">Зад.лев вид · Зад.лев протектор · Зад.прав вид · Зад.прав протектор</div>
+			</div>
+
+			<div class="inspCard">
+				<div class="commonRow">
+					<div class="commonRow__label" style="font-weight:600;">Все колёса проверены, технически исправны</div>
+					<label class="msToggle">
+						<input type="checkbox" id="techWheelsOkSwitch" class="msToggle__input">
+					</label>
+				</div>
+			</div>
+
+			<div id="techPt1Errors" class="hidden"></div>
+			<button id="tech_topt2" class="def_button">Продолжить →</button>
+		</div>
+
+		<!-- ШАГ 2: салон, мотор, багаж -->
+		<div id="tech_pt2" class="hidden">
+			<button id="tech_pt2back" class="btn btn--ghost btn--sm" type="button" style="margin: 0 0 12px 0; width: fit-content;">
+				← Назад
+			</button>
+
+			<div class="inspCard">
+				<h3 class="inspCard__title">Фото салона</h3>
+				<div class="photoHelp">Водительская дверь</div>
+				<div id="techPhoto_irl"></div>
+				<div class="photoHelp" style="margin-top:12px;">Передняя правая дверь</div>
+				<div id="techPhoto_irr"></div>
+				<div class="photoHelp" style="margin-top:12px;">Задняя правая дверь <span style="color:#94a3b8;">(необязательно)</span></div>
+				<div id="techPhoto_ibr"></div>
+				<div class="photoHelp" style="margin-top:12px;">Задняя левая дверь <span style="color:#94a3b8;">(необязательно)</span></div>
+				<div id="techPhoto_ibl"></div>
+			</div>
+
+			<div class="inspCard">
+				<h3 class="inspCard__title">Фото моторного отсека</h3>
+				<div id="techPhoto_engine"></div>
+			</div>
+
+			<div class="inspCard">
+				<h3 class="inspCard__title">Фото багажного отделения</h3>
+				<div id="techPhoto_trunk"></div>
+			</div>
+
+			<div id="techPt2Errors" class="hidden"></div>
+			<button id="sendTechCheckup" class="def_button" style="background:#16a34a;">Завершить осмотр</button>
+		</div>
+
+	</div>
+
     <!-- фото -->
 	<div id="page-photo" class="page" style="">
 		<div style="font-family: Roboto;">Сделайте фото</div>
@@ -991,7 +1320,7 @@
 		</div>
 	</div>
 
-	<script type="module" src="/driver-app/app.js?v=20260703_04"></script>
+	<script type="module" src="/driver-app/app.js?v=20260707_09"></script>
 </body>
 
 </html>

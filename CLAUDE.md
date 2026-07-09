@@ -2,10 +2,11 @@
 
 ## Стек
 
-- **Backend**: ASP.NET Core (.NET 8), один файл `ServerLinux/Program.cs` (~1100 строк)
+- **Backend**: Node.js 20 (Fastify), `ServerNode/src/` (~10 файлов по доменам)
 - **Frontend**: Vanilla JS (`Client/app.js` ~2300 строк), HTML/CSS, без фреймворков
-- **БД**: SQLite — отдельные файлы через `ServerLinux/CarDb.cs`, `CheckupDb.cs`, `LocationDb.cs`, `RoutesDb.cs`, `UserDb.cs`
+- **БД**: SQLite (better-sqlite3) — те же файлы `data/*.db`, сессии в `data/sessions.db`
 - **Деплой**: Docker, `docker-compose.yml` (прод) / `docker-compose.dev.yml` (локально)
+- **Старый backend**: `ServerLinux/` (ASP.NET Core) — оставлен как reference, не используется
 - **Telegram SDK**: удалён полностью (июль 2026). Приложение работает в обычном браузере.
 
 ## Серверы
@@ -33,19 +34,30 @@ Client/
   brandico/           — PNG логотипы брендов (локальные, без CDN)
   assets/             — logo.png, car-illustration.png, login-bg.png
 
-ServerLinux/
-  Program.cs          — все API эндпоинты + раздача статики
-  CarDb.cs            — CRUD автомобилей
-  CheckupDb.cs        — пре/пост чекапы
-  LocationDb.cs       — справочник локаций
-  RoutesDb.cs         — маршруты
-  UserDb.cs           — пользователи (Login, Password hash, Role, Name, Surname)
-  SessionStore.cs     — in-memory сессии
+ServerNode/                    — АКТИВНЫЙ БЭКЕНД (Node.js / Fastify)
+  src/
+    server.js                  — entry point, регистрация плагинов + маршрутов
+    db/
+      users.js, cars.js, locations.js, routes.js, checkups.js, sessions.js
+    routes/
+      auth.js, cars.js, locations.js, users.js, checkups.js, routes.js, carcard.js, reports.js
+    middleware/auth.js         — requireSession, requireAdmin
+    utils/
+      base36.js                — encode/decode (совместимо с C# Base36Converter)
+      photos.js                — savePhotoFromDataUri
+      excel.js                 — appendPreCheckupRow, appendPostCheckupRow, getTablesZip
+      accessKeys.js            — одноразовые ключи для /api/get-tables
+  tests/                       — интеграционные тесты (vitest)
+    auth.test.js, cars.test.js, locations.test.js, users.test.js
+    routes.test.js, checkups.test.js, carcard.test.js
   Dockerfile
-  Legacy/             — устаревший код, не трогать
+  package.json
+
+ServerLinux/                   — УСТАРЕЛ (ASP.NET Core), оставлен как reference
 
 data/                 — монтируется в контейнер как volume
   cars.db, users.db, locations.db, checkups.db, routes.db
+  sessions.db                  — SQLite-сессии (Node.js, TTL 30 дней)
   car-photos/         — фото авто (имя файла = госномер, напр. В058МО193.jpg)
   Photo/              — фото из чекапов (year/month/date/brand_model_number/)
 ```
@@ -53,17 +65,28 @@ data/                 — монтируется в контейнер как vo
 ## Локальный запуск
 
 ```bash
-# Запуск (порт 8081)
+# Запуск в Docker (порт 8081)
 docker-compose -f docker-compose.dev.yml up -d --build
 
-# Остановка
+# Запуск напрямую (без Docker, порт 8080)
+cd ServerNode && node src/server.js
+
+# Остановка Docker
 docker-compose -f docker-compose.dev.yml down
 
-# Логи
+# Логи Docker
 docker logs motorsharks-dev
+
+# Тесты
+cd ServerNode && npm test
 ```
 
 Данные дев-контейнера — `./data/` (SQLite + фото).
+
+### Важно: сессии при переходе с .NET
+При первом запуске Node.js-бэкенда старые сессии (из `data/sessionstorage`) аннулируются.
+Все пользователи должны войти заново. Пароли в открытом виде автоматически мигрируют
+в bcrypt при первом успешном входе.
 
 ## Деплой на прод
 
@@ -79,7 +102,7 @@ ssh root@89.111.165.211 "
 "
 ```
 
-При изменении бэкенда (`.cs` файлы) — нужна пересборка:
+При изменении бэкенда (`ServerNode/src/` файлы) — нужна пересборка:
 
 ```bash
 ssh root@89.111.165.211 "cd /root/site/DriverAppSource_Cortex && docker-compose down && docker-compose up -d --build"
@@ -87,7 +110,7 @@ ssh root@89.111.165.211 "cd /root/site/DriverAppSource_Cortex && docker-compose 
 
 ## Кэш-бастинг
 
-Текущая версия: `20260703_01`
+Текущая версия: `20260707_09`
 
 Версия прописана в **двух местах** — должна совпадать:
 1. `Client/app.js` строки 2-7: `const __v = "20260703_01"` + импорты модулей
@@ -142,7 +165,9 @@ GET  /api/cars         — список автомобилей (публичны
 GET  /api/locations    — список локаций
 GET  /api/routes       — маршруты водителя
 POST /api/route        — создать маршрут
-GET  /api/get-tables   — скачать xlsx (только admin, требует access_key)
+GET  /api/get-tables              — скачать xlsx (только admin, требует access_key)
+POST /api/tech-inspection         — отправка внеочередного тех.осмотра
+GET  /driver-app/tech-inspections — отчёт по тех.осмотрам (фильтры + xlsx без фото)
 ```
 
 Аутентификация через session token в теле JSON: `{ data: {...}, session: "..." }`.  
@@ -153,6 +178,37 @@ GET  /api/get-tables   — скачать xlsx (только admin, требуе
 Стоит перед контейнером, слушает 443 (SSL). Конфиг: `/etc/nginx/sites-enabled/default`.  
 Проксирует всё на `127.0.0.1:8080`. `client_max_body_size 600M` — для загрузки фото.
 
+## Тех.осмотр (TechInspection)
+
+Внеочередная тех.проверка — третий тип чекапа. Кнопка `offschedule_button` активируется при выборе машины.
+
+**Форма — 2 страницы:**
+- Страница 1 (`tech_pt1`): геолокация, 4 угловых + 4 боковых фото, 8 фото колёс (4 колеса × вид+протектор), toggle `techWheelsOkSwitch`
+- Страница 2 (`tech_pt2`): 2 обяз.фото салона (вод.+пер.прав двери), 2 необяз. (зад.прав+лев), фото мотора, фото багажа
+
+**DB:** таблица `tech_inspections` в `checkups.db`. Поля колёс: `photo_wfl/wfl_t/wfr/wfr_t/wrl/wrl_t/wrr/wrr_t`.
+
+**Отчёт:** `/driver-app/tech-inspections` — доступен всем у кого есть раздел Reports. Экспорт XLSX без фотографий.
+
+## Пост-чекап (PostCheckup)
+
+Данные в объекте `checkUpPostData`. Форма — 3 шага (post_pt1/post_pt2/post_pt3).
+
+### Поля с нестандартной обработкой
+
+| Поле | HTML-элемент | Тип | Логика |
+|------|-------------|-----|--------|
+| `antifreeze_ok` | `postCoolantSwitch` | msToggle | Необязательное. `true` если чекнуто, `false` иначе |
+| `dashboard_errors` | `postPanelErrorSwitch` + `postPanelOkSwitch` | два msToggle | Взаимоисключающие: `true`/`false`/`null` |
+| `osago_date` | `post_osago_date` | текст | Скрывается если `postOsagoMissingSwitch` включён |
+| `wifi` | `post_wifi_switch` | segmented A/B/C/NONE | Отдельный блок от VPN |
+| `vpn` | `post_vpn_switch` | segmented A/B/C/NONE | Отдельный блок от Wi-Fi |
+
+### Валидация по шагам
+- `validatePostPt1()` — 4 угловых фото, фото салона
+- `validatePostPt2()` — масло, тормозная жидкость, омывайка, освещение, аварийный набор, стёкла (охлаждайка — необязательна)
+- `validatePostPt3()` — топливо, панель приборов (один из двух свитчей), пробег, СТС, ОСАГО или `postOsagoMissingSwitch`, Wi-Fi, VPN
+
 ## Известные нюансы
 
 - **Без пересборки для статики**: `docker cp` в живой контейнер работает мгновенно для `.js`/`.html`.
@@ -160,3 +216,4 @@ GET  /api/get-tables   — скачать xlsx (только admin, требуе
 - **Старый кэш Safari**: если сайт раньше был другим — `Safari → Настройки → Конфиденциальность → Управление данными веб-сайтов → удалить motorsharks.online`.
 - **Telegram SDK**: полностью удалён. Весь код работает через стандартные browser API.
 - **SSH**: `ssh root@89.111.165.211` — ключ уже добавлен, пароль не нужен.
+- **Минифицированный JS**: `app.js` — один файл, одна строка ~60KB. Никаких `//` комментариев в середине кода — они закомментируют всё до конца «строки» = до конца файла.
